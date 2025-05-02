@@ -21,7 +21,7 @@ release:
   github:
     owner: kpiljoong
     name: tome
-  draft: true
+  draft: false
   prerelease: auto
 
 checksum:
