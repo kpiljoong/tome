@@ -1,0 +1,41 @@
+# Go build artifacts
+/bin/
+/*.exe
+/*.out
+/*.test
+/tome*
+
+# Build system files
+/dist/
+/build/
+/coverage.out
+
+# Output logs, local plans
+*.log
+*.json
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# OS/system files
+*.bak
+*.tmp
+
+# Dependency management
+vendor/
+
+# Coverage profiles
+*.coverprofile
+coverage/
+
+# Generated documentation
+/docs/gen/
+
+# Cache
+*.cache
+.cache/
