@@ -112,7 +112,7 @@ func (b *S3Backend) ListJournal(namespace, query string) ([]*model.JournalEntry,
 	})
 
 	for paginator.HasMorePages() {
-		fmt.Printf("Listing journal entries in %s...\n", prefix)
+		// fmt.Printf("Listing journal entries in %s...\n", prefix)
 		page, err := paginator.NextPage(context.TODO())
 		if err != nil {
 			return nil, fmt.Errorf("error listing jorunal: %w", err)

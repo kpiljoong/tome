@@ -14,6 +14,12 @@ build:
 	@mkdir -p $(OUTPUT_DIR)
 	@go build -o $(OUTPUT_PATH) $(CMD_PATH)
 
+cp: build copy
+
+copy:
+	@echo "Copying $(APP_NAME)..."
+	@cp $(OUTPUT_PATH) ~/tools/
+
 run:
 	@echo "Running $(APP_NAME)..."
 	@go run $(CMD_PATH)

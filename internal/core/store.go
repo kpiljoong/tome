@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/kpiljoong/tome/pkg/model"
@@ -14,8 +15,29 @@ import (
 	"github.com/kpiljoong/tome/pkg/util"
 )
 
+func SaveDir(namespace, root string, smart bool) ([]*model.JournalEntry, error) {
+	var entries []*model.JournalEntry
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() || strings.HasPrefix(info.Name(), ".") {
+			return nil
+		}
+
+		entry, err := Save(namespace, path, smart)
+		if err != nil {
+			return nil
+		}
+		entries = append(entries, entry)
+		return nil
+	})
+	return entries, err
+}
+
 // Save saves a file to the journal under a given namespace.
-func Save(namespace, path string) (*model.JournalEntry, error) {
+func Save(namespace, path string, smart bool) (*model.JournalEntry, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve full path: %w", err)
@@ -26,8 +48,16 @@ func Save(namespace, path string) (*model.JournalEntry, error) {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	sum := sha256.Sum256(data)
-	hash := "sha256:" + hex.EncodeToString(sum[:])
+	hash := computeBlobHash(data)
+
+	if smart {
+		existing, _ := Search(namespace, filepath.Base(path))
+		for _, e := range existing {
+			if e.FullPath == absPath && e.BlobHash == hash {
+				return nil, fmt.Errorf("already saved")
+			}
+		}
+	}
 
 	if err := paths.EnsureDirExists(paths.BlobsDir()); err != nil {
 		return nil, fmt.Errorf("failed to create blobs directory: %w", err)
@@ -63,4 +93,9 @@ func Save(namespace, path string) (*model.JournalEntry, error) {
 		return nil, fmt.Errorf("failed to write journal entry: %w", err)
 	}
 	return entry, nil
+}
+
+func computeBlobHash(data []byte) string {
+	sum := sha256.Sum256(data)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }

@@ -1,15 +1,34 @@
 package cliutil
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/kpiljoong/tome/pkg/logx"
 )
 
 // WriteOutput writes data to a file or stdout.
 // If quite is true, it suppresses the success message.
-func WriteOutput(path string, data []byte, quiet bool) error {
+// If asJSON is true, the data is formatted before writing.
+func WriteOutput(path string, data []byte, quiet bool, asJSON bool) error {
 	if path == "" {
+		if asJSON {
+			var parsed any
+			if err := json.Unmarshal(data, &parsed); err != nil {
+				return fmt.Errorf("failed to parse JSON data: %w", err)
+			}
+			if !quiet {
+				logx.Info("📝 Outputting JSON to stdout:")
+			}
+			return PrintPrettyJSON(parsed)
+		}
+
+		if !quiet {
+			logx.Info("📝 Outputting raw to stdout:")
+		}
 		_, err := os.Stdout.Write(data)
+		fmt.Println()
 		return err
 	}
 
@@ -18,8 +37,17 @@ func WriteOutput(path string, data []byte, quiet bool) error {
 	}
 
 	if !quiet {
-		fmt.Printf("Output written to: %s\n", path)
+		logx.Success("📄 File written to %s", path)
 	}
 
+	return nil
+}
+
+func PrintPrettyJSON(v any) error {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(data))
 	return nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/kpiljoong/tome/internal/backend/s3"
 	"github.com/kpiljoong/tome/internal/core"
 	"github.com/kpiljoong/tome/pkg/cliutil"
+	"github.com/kpiljoong/tome/pkg/logx"
 	"github.com/kpiljoong/tome/pkg/model"
 	"github.com/kpiljoong/tome/pkg/paths"
 )
@@ -25,6 +26,8 @@ var GetCmd = &cobra.Command{
 		interactive, _ := cmd.Flags().GetBool(cliutil.FlagInteractive)
 		outputPath, _ := cmd.Flags().GetString(cliutil.FlagOutput)
 		from, _ := cmd.Flags().GetString(cliutil.FlagFrom)
+		quiet, _ := cmd.Flags().GetBool(cliutil.FlagQuiet)
+		jsonOut, _ := cmd.Flags().GetBool(cliutil.FlagJSON)
 
 		var data []byte
 		var err error
@@ -39,16 +42,10 @@ var GetCmd = &cobra.Command{
 			log.Fatalf("Get failed: %v\n", err)
 		}
 
-		if err := cliutil.WriteOutput(outputPath, data, false); err != nil {
+		if err := cliutil.WriteOutput(outputPath, data, quiet, jsonOut); err != nil {
 			log.Fatalf(" %v", err)
 		}
 	},
-}
-
-func init() {
-	cliutil.AttachOutputFlag(GetCmd, "")
-	cliutil.AttachRemoteFlag(GetCmd, cliutil.FlagFrom)
-	cliutil.AttachInteractiveFlag(GetCmd)
 }
 
 func getFromLocal(namespace, query string, interactive bool) ([]byte, error) {
@@ -108,13 +105,21 @@ func getFromRemote(namespace, query, from string, interactive bool) ([]byte, err
 			return nil, err
 		}
 	} else {
-		fmt.Printf("Multiple matches found:")
+		logx.Warn("Multiple matches found:")
 		for _, e := range entries {
-			fmt.Printf("  - [%s] %s\n", e.Timestamp.Format("2006-01-02 15:04"), e.FullPath)
+			fmt.Printf("   🧾  [%s] %s\n", e.Timestamp.Format("2006-01-02 15:04"), e.FullPath)
 		}
-		fmt.Println("💡 Tip: use '--interactive' to select one")
+		logx.Hint("Use --interactive to pick one")
 		log.Fatalf("❌ Ambiguous result — refine your query")
 	}
 
 	return core.GetBlobByHash(selected.BlobHash)
+}
+
+func init() {
+	cliutil.AttachOutputFlag(GetCmd, "")
+	cliutil.AttachJSONFlag(GetCmd)
+	cliutil.AttachQuietFlag(GetCmd)
+	cliutil.AttachRemoteFlag(GetCmd, cliutil.FlagFrom)
+	cliutil.AttachInteractiveFlag(GetCmd)
 }

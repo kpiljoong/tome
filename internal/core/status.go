@@ -8,18 +8,22 @@ import (
 	"strings"
 
 	"github.com/kpiljoong/tome/internal/backend"
+	"github.com/kpiljoong/tome/pkg/cliutil"
+	"github.com/kpiljoong/tome/pkg/logx"
 	"github.com/kpiljoong/tome/pkg/model"
+	"github.com/kpiljoong/tome/pkg/paths"
+	"github.com/kpiljoong/tome/pkg/util"
 )
 
-type SyncStatus struct {
-	ID        string
-	Namespace string
-	Filename  string
-	Source    string // local, remote, synced, conflict
-}
+// type SyncStatus struct {
+// 	ID        string `json:"id"`
+// 	Namespace string `json:"namespace"`
+// 	Filename  string `json:"filename"`
+// 	Source    string `json:"source"` // local, remote, synced, conflict
+// }
 
 func Status(localPath string, remote backend.RemoteBackend, jsonOut bool) error {
-	journalRoot := filepath.Join(localPath, "journals")
+	journalRoot := paths.JournalsDir()
 
 	localNamespaces, _ := listLocalNamespaces(journalRoot)
 	remoteNamespaces, _ := remote.ListNamespaces()
@@ -29,57 +33,38 @@ func Status(localPath string, remote backend.RemoteBackend, jsonOut bool) error 
 		nsSet[ns] = true
 	}
 
-	var statuses []SyncStatus
+	var statuses []cliutil.SyncStatus
 
 	for ns := range nsSet {
-		localEntries := map[string]*model.JournalEntry{}
-		remoteEntries := map[string]*model.JournalEntry{}
+		logx.Info("📂 Checking namespace: %s", ns)
 
-		// Load local
-		files, _ := os.ReadDir(filepath.Join(journalRoot, ns))
-		for _, f := range files {
-			if strings.HasSuffix(f.Name(), ".json") {
-				data, _ := os.ReadFile(filepath.Join(journalRoot, ns, f.Name()))
-				var entry model.JournalEntry
-				if err := json.Unmarshal(data, &entry); err == nil {
-					localEntries[entry.ID] = &entry
-				}
-			}
+		localEntries, err := loadLocalEntries(paths.NamespaceDir(ns))
+		if err != nil {
+			logx.Warn("Failed to load local entries for %s: %v", ns, err)
+			continue
 		}
 
-		// Load remote
-		rlist, _ := remote.ListJournal(ns, "")
-		for _, r := range rlist {
-			remoteEntries[r.ID] = r
+		remoteEntries, err := loadRemoteEntries(remote, ns)
+		if err != nil {
+			logx.Warn("Failed to load remote entries for %s: %v", ns, err)
+			continue
 		}
 
-		// Compare
+		util.SortJournalMapByTimestampDesc(localEntries)
+		util.SortJournalMapByTimestampDesc(remoteEntries)
+
+		// Compare entries
 		seen := map[string]bool{}
 		for id, local := range localEntries {
 			if remote, ok := remoteEntries[id]; ok {
 				if local.BlobHash == remote.BlobHash {
-					statuses = append(statuses, SyncStatus{
-						ID:        id,
-						Namespace: ns,
-						Filename:  local.Filename,
-						Source:    "synced",
-					})
+					statuses = append(statuses, cliutil.NewStatus(ns, id, local.Filename, "synced"))
 				} else {
-					statuses = append(statuses, SyncStatus{
-						ID:        id,
-						Namespace: ns,
-						Filename:  local.Filename,
-						Source:    "conflict",
-					})
+					statuses = append(statuses, cliutil.NewStatus(ns, id, local.Filename, "conflict"))
 				}
 				seen[id] = true
 			} else {
-				statuses = append(statuses, SyncStatus{
-					ID:        id,
-					Namespace: ns,
-					Filename:  local.Filename,
-					Source:    "local",
-				})
+				statuses = append(statuses, cliutil.NewStatus(ns, id, local.Filename, "local"))
 			}
 		}
 
@@ -87,35 +72,60 @@ func Status(localPath string, remote backend.RemoteBackend, jsonOut bool) error 
 			if seen[id] {
 				continue
 			}
-			statuses = append(statuses, SyncStatus{
-				ID:        id,
-				Namespace: ns,
-				Filename:  remote.Filename,
-				Source:    "remote",
-			})
+			statuses = append(statuses, cliutil.NewStatus(ns, id, remote.Filename, "remote"))
 		}
 	}
 
 	// Output
-	if jsonOut {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(statuses)
-	} else {
-		for _, s := range statuses {
-			var tag string
-			switch s.Source {
-			case "local":
-				tag = "🆕  Only in local:"
-			case "remote":
-				tag = "☁️  Only in remote:"
-			case "synced":
-				tag = "✅  Synced:"
-			case "conflict":
-				tag = "⚠️  Conflict:"
-			}
-			fmt.Printf("%s  %s/%s\n", tag, s.Namespace, s.Filename)
-		}
-		return nil
+	return cliutil.PrintStatus(statuses, jsonOut)
+	//	if jsonOut {
+	//		return cliutil.PrintPrettyJSON(statuses)
+	//	}
+	//
+	//	if len(statuses) == 0 {
+	//		logx.Success("✅ Everything is in sync")
+	//		return nil
+	//	}
+	//
+	// return nil
+}
+
+func loadLocalEntries(nsPath string) (map[string]*model.JournalEntry, error) {
+	entries := map[string]*model.JournalEntry{}
+
+	files, err := os.ReadDir(nsPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read namespace dir: %w", err)
 	}
+
+	for _, f := range files {
+		if f.IsDir() || !strings.HasSuffix(f.Name(), ".json") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(nsPath, f.Name()))
+		if err != nil {
+			continue
+		}
+		var entry model.JournalEntry
+		if err := json.Unmarshal(data, &entry); err == nil {
+			entries[entry.ID] = &entry
+		}
+	}
+
+	return entries, nil
+}
+
+func loadRemoteEntries(remote backend.RemoteBackend, ns string) (map[string]*model.JournalEntry, error) {
+	entries := map[string]*model.JournalEntry{}
+
+	rlist, err := remote.ListJournal(ns, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list remote journal: %w", err)
+	}
+
+	for _, r := range rlist {
+		entries[r.ID] = r
+	}
+
+	return entries, nil
 }

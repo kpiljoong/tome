@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/kpiljoong/tome/pkg/cliutil"
+	"github.com/kpiljoong/tome/pkg/logx"
 	"github.com/kpiljoong/tome/pkg/model"
 	"github.com/kpiljoong/tome/pkg/paths"
 )
@@ -73,11 +74,9 @@ var LatestCmd = &cobra.Command{
 			selected = matches[0]
 		}
 
-		// latest := matches[0]
-
-		fmt.Printf("🕓 Latest entry: %s (%s)\n", selected.Filename, selected.Timestamp.Format("2006-01-02 15:04:05"))
-		fmt.Printf("  ID:        %s\n", selected.ID)
-		fmt.Printf("  BlobHash:  %s\n", selected.BlobHash)
+		logx.Info("🕓 Latest entry: %s (%s)", selected.Filename, selected.Timestamp.Format("2006-01-02 15:04:05"))
+		logx.Info("  ID:        %s", selected.ID)
+		logx.Info("  BlobHash:  %s", selected.BlobHash)
 
 		outputPath, _ := cmd.Flags().GetString(cliutil.FlagOutput)
 		if outputPath != "" {
@@ -86,7 +85,7 @@ var LatestCmd = &cobra.Command{
 				log.Fatalf("Failed to read blob: %v", err)
 			}
 
-			if err := cliutil.WriteOutput(outputPath, data, false); err != nil {
+			if err := cliutil.WriteOutput(outputPath, data, false, false); err != nil {
 				log.Fatalf("Failed to write output file: %v", err)
 			}
 			// fmt.Printf("Restored blob to %s\n", outputPath)
@@ -96,5 +95,7 @@ var LatestCmd = &cobra.Command{
 
 func init() {
 	cliutil.AttachOutputFlag(LatestCmd, "")
+	cliutil.AttachJSONFlag(LatestCmd)
+	cliutil.AttachQuietFlag(LatestCmd)
 	cliutil.AttachInteractiveFlag(LatestCmd)
 }

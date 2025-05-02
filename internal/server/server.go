@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/kpiljoong/tome/internal/core"
+	"github.com/kpiljoong/tome/pkg/logx"
 )
 
 func Start(port int) error {
@@ -13,7 +14,7 @@ func Start(port int) error {
 	http.HandleFunc("/blob", handleBlob)
 
 	addr := fmt.Sprintf(":%d", port)
-	fmt.Printf("Serving on http://localhost%s\n", addr)
+	logx.Info("🚀 Server started at http://localhost:%d", port)
 	return http.ListenAndServe(addr, nil)
 }
 

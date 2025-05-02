@@ -9,15 +9,19 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/cobra"
+
+	"github.com/kpiljoong/tome/pkg/cliutil"
+	"github.com/kpiljoong/tome/pkg/logx"
 	"github.com/kpiljoong/tome/pkg/model"
 	"github.com/kpiljoong/tome/pkg/paths"
-	"github.com/spf13/cobra"
 )
 
 var ListCmd = &cobra.Command{
-	Use:   "list [namespace]",
-	Short: "List all files in a namespace",
-	Args:  cobra.ExactArgs(1),
+	Use:     "list [namespace]",
+	Aliases: []string{"ls"},
+	Short:   "List all files in a namespace",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		ns := args[0]
 		dir := paths.NamespaceDir(ns)
@@ -43,7 +47,7 @@ var ListCmd = &cobra.Command{
 		}
 
 		if len(entries) == 0 {
-			fmt.Println("No entries found.")
+			logx.Warn("🚫 No entries found in namespace: %s", ns)
 			return
 		}
 
@@ -51,11 +55,22 @@ var ListCmd = &cobra.Command{
 			return entries[i].Timestamp.After(entries[j].Timestamp)
 		})
 
-		for _, e := range entries {
-			fmt.Printf("%s  %-20s  %s\n",
-				e.Timestamp.Format("2006-01-02 15:04"),
-				e.Filename,
-				e.ID)
+		jsonOut, _ := cmd.Flags().GetBool(cliutil.FlagJSON)
+		if jsonOut {
+			if err := cliutil.PrintPrettyJSON(entries); err != nil {
+				logx.Error("Failed to encode JSON: %v", err)
+			}
+		} else {
+			for _, e := range entries {
+				fmt.Printf("%s  %-20s  %s\n",
+					e.Timestamp.Format("2006-01-02 15:04"),
+					e.Filename,
+					e.ID)
+			}
 		}
 	},
+}
+
+func init() {
+	cliutil.AttachJSONFlag(ListCmd)
 }

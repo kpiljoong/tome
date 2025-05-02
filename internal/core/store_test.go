@@ -21,7 +21,7 @@ func TestSave_WritesBlobAndJournal(t *testing.T) {
 	err := os.WriteFile(testFile, content, 0o644)
 	assert.NoError(t, err)
 
-	entry, err := Save("testspace", testFile)
+	entry, err := Save("testspace", testFile, false)
 	assert.NoError(t, err)
 	assert.NotNil(t, entry)
 	assert.Equal(t, "test.txt", entry.Filename)

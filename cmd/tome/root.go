@@ -19,6 +19,7 @@ func init() {
 		journal.GetCmd,
 		journal.LatestCmd,
 		journal.ListCmd,
+		journal.LogCmd,
 		journal.NamespacesCmd,
 		journal.SaveCmd,
 		journal.SearchCmd,

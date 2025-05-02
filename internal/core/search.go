@@ -9,7 +9,33 @@ import (
 
 	"github.com/kpiljoong/tome/pkg/model"
 	"github.com/kpiljoong/tome/pkg/paths"
+	"github.com/kpiljoong/tome/pkg/util"
 )
+
+func SearchAll(query string) ([]*model.JournalEntry, error) {
+	root := paths.JournalsDir()
+	namespaces, err := os.ReadDir(root)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read journals root: %w", err)
+	}
+
+	var all []*model.JournalEntry
+	for _, ns := range namespaces {
+		if !ns.IsDir() {
+			continue
+		}
+
+		nsName := ns.Name()
+		entries, err := Search(nsName, query)
+		if err == nil {
+			all = append(all, entries...)
+		}
+	}
+
+	util.SortEntriesByTimestampDesc(all)
+
+	return all, nil
+}
 
 func SearchLocal(namespace, query string) ([]*model.JournalEntry, error) {
 	dir := paths.NamespaceDir(namespace)
@@ -37,12 +63,15 @@ func SearchLocal(namespace, query string) ([]*model.JournalEntry, error) {
 		}
 	}
 
+	util.SortEntriesByTimestampDesc(entries)
+
 	return entries, nil
 }
 
 func Search(namespace string, query string) ([]*model.JournalEntry, error) {
-	baseDir := filepath.Join(os.Getenv("HOME"), ".tome")
-	journalDir := filepath.Join(baseDir, "journals", namespace)
+	// baseDir := filepath.Join(os.Getenv("HOME"), ".tome")
+	// journalDir := filepath.Join(baseDir, "journals", namespace)
+	journalDir := paths.NamespaceDir(namespace)
 
 	var results []*model.JournalEntry
 
@@ -72,6 +101,8 @@ func Search(namespace string, query string) ([]*model.JournalEntry, error) {
 			results = append(results, &entry)
 		}
 	}
+
+	util.SortEntriesByTimestampDesc(results)
 
 	return results, nil
 }

@@ -8,6 +8,10 @@ const (
 	FlagFrom        = "from"
 	FlagTo          = "to"
 	FlagMode        = "mode"
+	FlagJSON        = "json"
+	FlagQuiet       = "quiet"
+	FlagLimit       = "limit"
+	FlagSmart       = "smart"
 )
 
 func AttachOutputFlag(cmd *cobra.Command, defaultPath string, help ...string) *string {
@@ -22,6 +26,14 @@ func AttachJSONFlag(cmd *cobra.Command) *bool {
 	return cmd.Flags().Bool("json", false, "Output in JSON format")
 }
 
+func AttachQuietFlag(cmd *cobra.Command) *bool {
+	return cmd.Flags().Bool(FlagQuiet, false, "Suppress output")
+}
+
+func AttachLimitFlag(cmd *cobra.Command) *string {
+	return cmd.Flags().String(FlagLimit, "", "Limit number of entries shown")
+}
+
 func AttachRemoteFlag(cmd *cobra.Command, name string) *string {
 	return cmd.Flags().String(name, "", "Remote backend path (e.g. s3://bucket/prefix)")
 }
@@ -32,4 +44,8 @@ func AttachModeFlag(cmd *cobra.Command) *string {
 
 func AttachInteractiveFlag(cmd *cobra.Command) *bool {
 	return cmd.Flags().Bool(FlagInteractive, false, "Enable interactive mode")
+}
+
+func AttachSmartFlag(cmd *cobra.Command) *bool {
+	return cmd.Flags().Bool("smart", false, "Enable smart mode")
 }
