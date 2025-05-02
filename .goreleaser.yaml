@@ -15,7 +15,7 @@ archives:
     wrap_in_directory: true
     files:
       - LICENSE
-      - REAEDME.md
+      - README.md
 
 release:
   github:
