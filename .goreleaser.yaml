@@ -1,21 +1,20 @@
 project_name: tome
+
 builds:
   - main: ./cmd/tome/main.go
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
     ldflags:
       - -s -w -X main.version={{.Version}}
+    binary: tome
 
 archives:
   - format: tar.gz
-    replacements:
-      drawin: macOS
-      windows: Windows
-      linux: Linux
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    wrap_in_directory: true
     files:
       - LICENSE
       - REAEDME.md
-    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
 
 release:
   github:
