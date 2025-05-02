@@ -21,3 +21,8 @@ func Error(msg string, args ...any) {
 func Hint(msg string, args ...any) {
 	fmt.Printf("💡 "+msg+"\n", args...)
 }
+
+func Section(format string, a ...interface{}) {
+	fmt.Printf("\n%s\n", fmt.Sprintf(format, a...))
+	fmt.Println("────────────────────────────────────────")
+}

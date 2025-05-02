@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -29,8 +30,13 @@ func BlobsDir() string {
 	return filepath.Join(TomeRoot(), RemoteBlobsPrefix)
 }
 
+func sanitizeHash(hash string) string {
+	// Replace ':' with '_' to avoid issues with file paths
+	return strings.ReplaceAll(hash, ":", "_")
+}
+
 func BlobPath(hash string) string {
-	return filepath.Join(BlobsDir(), hash)
+	return filepath.Join(BlobsDir(), sanitizeHash(hash))
 }
 
 func JournalsDir() string {

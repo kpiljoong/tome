@@ -7,5 +7,9 @@ func RemoteJournalPath(namespace, id string) string {
 }
 
 func RemoteBlobPath(hash string) string {
-	return filepath.Join(RemoteBlobsPrefix, hash)
+	return filepath.ToSlash(filepath.Join(RemoteBlobsPrefix, sanitizeHash(hash)))
+}
+
+func RemoteNamespacePrefix(namespace string) string {
+	return filepath.ToSlash(filepath.Join(RemoteJournalsPrefix, namespace))
 }

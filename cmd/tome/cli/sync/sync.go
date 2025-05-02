@@ -28,7 +28,6 @@ var SyncCmd = &cobra.Command{
 		if err != nil {
 			logx.Error("Failed to resolve remote: %v", err)
 			log.Fatalf("Sync aborted")
-			// log.Fatalf("Failed to resolve remote: %v", err)
 		}
 
 		logx.Info("Mode: %s -> %s", mode, backend.Describe())

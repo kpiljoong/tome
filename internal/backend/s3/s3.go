@@ -82,7 +82,7 @@ func (b *S3Backend) UploadFile(localPath, remotePath string) error {
 		return fmt.Errorf("failed to upload file %s to s3://%s/%s: %w", localPath, b.Bucket, s3Key, err)
 	}
 
-	logx.Success("⬆️  %s → s3://%s/%s", localPath, b.Bucket, remotePath)
+	logx.Success("⬆️  %s → s3://%s/%s", localPath, b.Bucket, s3Key)
 	// fmt.Printf(" Uploaded %s to s3://%s/%s\n", localPath, b.Bucket, s3Key)
 	return nil
 }
@@ -112,7 +112,6 @@ func (b *S3Backend) ListJournal(namespace, query string) ([]*model.JournalEntry,
 	})
 
 	for paginator.HasMorePages() {
-		// fmt.Printf("Listing journal entries in %s...\n", prefix)
 		page, err := paginator.NextPage(context.TODO())
 		if err != nil {
 			return nil, fmt.Errorf("error listing jorunal: %w", err)
@@ -147,7 +146,8 @@ func (b *S3Backend) ListJournal(namespace, query string) ([]*model.JournalEntry,
 }
 
 func (b *S3Backend) GetBlobByHash(hash string) ([]byte, error) {
-	key := filepath.ToSlash(filepath.Join(b.Prefix, "blobs", hash))
+	safeHash := strings.ReplaceAll(hash, ":", "-")
+	key := filepath.ToSlash(filepath.Join(b.Prefix, "blobs", safeHash))
 	resp, err := b.Client.GetObject(context.TODO(), &s3.GetObjectInput{
 		Bucket: aws.String(b.Bucket),
 		Key:    aws.String(key),
