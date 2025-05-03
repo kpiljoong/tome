@@ -32,5 +32,6 @@ func init() {
 		serve.ServeCmd,
 		configCmd,
 		ShareCmd,
+		TuiCmd,
 	)
 }
