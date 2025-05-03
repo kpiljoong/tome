@@ -10,6 +10,7 @@ import (
 	"github.com/kpiljoong/tome/internal/core"
 	"github.com/kpiljoong/tome/pkg/cliutil"
 	"github.com/kpiljoong/tome/pkg/logx"
+	"github.com/kpiljoong/tome/pkg/util"
 )
 
 var SaveCmd = &cobra.Command{
@@ -21,6 +22,7 @@ var SaveCmd = &cobra.Command{
 		path := args[1]
 
 		smart, _ := cmd.Flags().GetBool(cliutil.FlagSmart)
+		excludePatterns, _ := cmd.Flags().GetStringArray(cliutil.FlagExclude)
 
 		info, err := os.Stat(path)
 		if err != nil {
@@ -28,11 +30,16 @@ var SaveCmd = &cobra.Command{
 		}
 
 		if info.IsDir() {
-			entries, err := core.SaveDir(namespace, path, smart)
+			entries, err := core.SaveDirWithExclude(namespace, path, smart, excludePatterns)
 			if err != nil {
 				log.Fatalf("❌ Failed to save directory: %v", err)
 			}
 			logx.Success("📦 Saved %d file(s) from directory: %s", len(entries), path)
+			return
+		}
+
+		if util.ShouldExclude(path, excludePatterns) {
+			logx.Info("🚫 Skipped excluded file: %s", path)
 			return
 		}
 
@@ -53,4 +60,5 @@ var SaveCmd = &cobra.Command{
 
 func init() {
 	cliutil.AttachSmartFlag(SaveCmd)
+	cliutil.AttachExcludeFlag(SaveCmd)
 }

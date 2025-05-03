@@ -36,6 +36,26 @@ func SaveDir(namespace, root string, smart bool) ([]*model.JournalEntry, error) 
 	return entries, err
 }
 
+func SaveDirWithExclude(namespace, root string, smart bool, excludes []string) ([]*model.JournalEntry, error) {
+	var entries []*model.JournalEntry
+
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if util.ShouldExclude(path, excludes) {
+			return nil
+		}
+
+		entry, err := Save(namespace, path, smart)
+		if err == nil {
+			entries = append(entries, entry)
+		}
+		return nil
+	})
+	return entries, err
+}
+
 // Save saves a file to the journal under a given namespace.
 func Save(namespace, path string, smart bool) (*model.JournalEntry, error) {
 	absPath, err := filepath.Abs(path)

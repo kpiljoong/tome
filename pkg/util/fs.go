@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func CopyDir(src, dst string) error {
@@ -42,4 +43,14 @@ func CopyFile(src, dst string) error {
 
 	_, err = io.Copy(out, in)
 	return err
+}
+
+func ShouldExclude(path string, patterns []string) bool {
+	for _, pat := range patterns {
+		match, _ := filepath.Match(pat, filepath.Base(path))
+		if match || strings.Contains(path, pat) {
+			return true
+		}
+	}
+	return false
 }

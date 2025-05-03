@@ -13,6 +13,7 @@ const (
 	FlagLimit       = "limit"
 	FlagSmart       = "smart"
 	FlagShorten     = "shorten"
+	FlagExclude     = "exclude"
 )
 
 func AttachOutputFlag(cmd *cobra.Command, defaultPath string, help ...string) *string {
@@ -53,4 +54,8 @@ func AttachSmartFlag(cmd *cobra.Command) *bool {
 
 func AttachShortenFlag(cmd *cobra.Command) *bool {
 	return cmd.Flags().Bool(FlagShorten, false, "Enable shorten mode")
+}
+
+func AttachExcludeFlag(cmd *cobra.Command) *[]string {
+	return cmd.Flags().StringArray(FlagExclude, nil, "Exclude entries matching this pattern")
 }
