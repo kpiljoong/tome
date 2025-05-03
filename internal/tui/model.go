@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
 	coreModel "github.com/kpiljoong/tome/pkg/model"
@@ -20,17 +21,20 @@ const (
 )
 
 type model struct {
-	state        state
-	cursor       int
-	scrollOffset int
-	namespaces   []string
+	state      state
+	namespaces []string
+	cursor     int
+
 	entries      []*coreModel.JournalEntry
 	currentNS    string
 	currentEntry *coreModel.JournalEntry
-	preview      string
+
+	preview  string
+	viewport viewport.Model
+	ready    bool
 }
 
-func initialModel() model {
+func initialModel(optionalNS ...string) model {
 	journalDir := paths.JournalsDir()
 	entries, err := os.ReadDir(journalDir)
 	if err != nil {
@@ -48,15 +52,29 @@ func initialModel() model {
 		namespaces = append(namespaces, "(empty)")
 	}
 
-	return model{
+	m := model{
 		state:      stateNamespaceList,
 		namespaces: namespaces,
 		cursor:     0,
 	}
+
+	if len(optionalNS) > 0 {
+		ns := optionalNS[0]
+		for _, n := range namespaces {
+			if n == ns {
+				m.state = stateJournalList
+				m.currentNS = ns
+				m.entries = loadJournalEntries(ns)
+				break
+			}
+		}
+	}
+
+	return m
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return tea.EnterAltScreen
 }
 
 func (m model) listLen() int {

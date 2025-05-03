@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/kpiljoong/tome/pkg/logx"
@@ -26,12 +27,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case stateNamespaceList, stateJournalList:
 				if m.cursor > 0 {
 					m.cursor--
+					if m.cursor < m.viewport.YOffset {
+						m.viewport.ScrollUp(1)
+					}
+					m.updateJournalViewport()
 				}
 
 			case stateFilePreview:
-				if m.scrollOffset > 0 {
-					m.scrollOffset--
-				}
+				m.viewport.ScrollUp(1)
 			}
 
 		case "down", "j":
@@ -39,19 +42,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case stateNamespaceList:
 				if m.cursor < len(m.namespaces)-1 {
 					m.cursor++
+					m.viewport.ScrollDown(1)
 				}
 
 			case stateJournalList:
 				if m.cursor < len(m.entries)-1 {
 					m.cursor++
+					if m.cursor >= m.viewport.YOffset+m.viewport.Height {
+						m.viewport.ScrollDown(1)
+					}
+					m.updateJournalViewport()
 				}
 
 			case stateFilePreview:
-				lines := strings.Split(m.preview, "\n")
-				maxScroll := len(lines) - terminalHeight() + 5
-				if m.scrollOffset < maxScroll {
-					m.scrollOffset++
-				}
+				m.viewport.ScrollDown(1)
 			}
 
 		case "esc", "backspace":
@@ -63,6 +67,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case stateFilePreview:
 				m.state = stateJournalList
 				m.cursor = 0
+				m.updateJournalViewport()
 			}
 			return m, tea.ClearScreen
 
@@ -72,10 +77,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.namespaces) > 0 {
 					selectedNS := m.namespaces[m.cursor]
 					journalEntries := loadJournalEntries(selectedNS)
+
 					m.state = stateJournalList
 					m.currentNS = selectedNS
 					m.entries = journalEntries
 					m.cursor = 0
+
+					m.updateJournalViewport()
+					m.viewport.GotoTop()
 				}
 
 			case stateJournalList:
@@ -83,11 +92,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					selected := m.entries[m.cursor]
 					m.preview = loadFilePreview(selected)
 					m.currentEntry = selected
+					m.viewport.SetContent(m.preview)
+					m.viewport.GotoTop()
 					m.state = stateFilePreview
 					m.cursor = 0
 				}
 			}
 			return m, tea.ClearScreen
+		}
+
+	case tea.WindowSizeMsg:
+		if !m.ready {
+			vp := viewport.New(msg.Width, msg.Height-2-4)
+			vp.SetContent(m.preview)
+			m.viewport = vp
+			m.ready = true
+		} else {
+			m.viewport.Width = msg.Width
+			m.viewport.Height = msg.Height - 2 - 4
 		}
 	}
 	return m, nil
@@ -129,4 +151,27 @@ func loadFilePreview(e *coreModel.JournalEntry) string {
 		return fmt.Sprintf("❌ Failed to read blob: %v", err)
 	}
 	return string(data)
+}
+
+func (m *model) updateJournalViewport() {
+	var b strings.Builder
+	for i, e := range m.entries {
+		cursor := "  "
+		if i == m.cursor {
+			cursor = "👉"
+		}
+		b.WriteString(fmt.Sprintf("%s [%s] %-20s ID: %s\n",
+			cursor,
+			e.Timestamp.Format("2006-01-02 15:04"),
+			e.Filename,
+			e.ID[:10],
+		))
+	}
+	m.viewport.SetContent(b.String())
+
+	// if m.cursor < m.viewport.YOffset {
+	// 	m.viewport.YOffset = m.cursor
+	// } else if m.cursor >= m.viewport.YOffset+m.viewport.Height {
+	// 	m.viewport.YOffset = m.cursor - m.viewport.Height + 1
+	// }
 }

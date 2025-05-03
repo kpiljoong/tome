@@ -63,6 +63,14 @@ tome status --from s3://your-bucket/prefix --json
 tome share workbooks plan.json --from s3://your-bucket/prefix --shorten
 ```
 
+### Terminal UI (TUI)
+
+You can browse saved journal entries in a terminal interface:
+
+```bash
+tome tui
+```
+
 ## Configuration
 
 Create a config file at `~/.tome/config.yaml`:

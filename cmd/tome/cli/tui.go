@@ -11,8 +11,13 @@ var TuiCmd = &cobra.Command{
 	Use:   "tui",
 	Short: "Start the TUI interface",
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := tui.Start(); err != nil {
+		ns, _ := cmd.Flags().GetString("namespace")
+		if err := tui.Start(ns); err != nil {
 			log.Fatalf("❌ TUI failed: %v", err)
 		}
 	},
+}
+
+func init() {
+	TuiCmd.Flags().String("namespace", "", "Start directly in a given namespace")
 }
