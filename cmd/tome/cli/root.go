@@ -27,6 +27,7 @@ func init() {
 		journal.SaveCmd,
 		journal.SearchCmd,
 		journal.ShowCmd,
+		journal.RmCmd,
 		sync.StatusCmd,
 		sync.SyncCmd,
 		serve.ServeCmd,

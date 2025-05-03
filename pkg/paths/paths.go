@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/kpiljoong/tome/pkg/model"
 )
 
 const (
@@ -49,6 +51,10 @@ func NamespaceDir(ns string) string {
 
 func JournalPath(ns, id string) string {
 	return filepath.Join(NamespaceDir(ns), fmt.Sprintf("%s.json", id))
+}
+
+func JournalEntryPath(entry *model.JournalEntry) string {
+	return filepath.Join(JournalsDir(), entry.Namespace, entry.ID+".json")
 }
 
 func EnsureDirExists(path string) error {

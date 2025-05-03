@@ -14,6 +14,7 @@ const (
 	FlagSmart       = "smart"
 	FlagShorten     = "shorten"
 	FlagExclude     = "exclude"
+	FlagAll         = "all"
 )
 
 func AttachOutputFlag(cmd *cobra.Command, defaultPath string, help ...string) *string {
@@ -58,4 +59,8 @@ func AttachShortenFlag(cmd *cobra.Command) *bool {
 
 func AttachExcludeFlag(cmd *cobra.Command) *[]string {
 	return cmd.Flags().StringArray(FlagExclude, nil, "Exclude entries matching this pattern")
+}
+
+func AttachAllFlag(cmd *cobra.Command) *bool {
+	return cmd.Flags().Bool(FlagAll, false, "Include all entries")
 }
