@@ -168,10 +168,4 @@ func (m *model) updateJournalViewport() {
 		))
 	}
 	m.viewport.SetContent(b.String())
-
-	// if m.cursor < m.viewport.YOffset {
-	// 	m.viewport.YOffset = m.cursor
-	// } else if m.cursor >= m.viewport.YOffset+m.viewport.Height {
-	// 	m.viewport.YOffset = m.cursor - m.viewport.Height + 1
-	// }
 }
