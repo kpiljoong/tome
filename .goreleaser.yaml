@@ -2,7 +2,8 @@ version: 1
 project_name: tome
 
 builds:
-  - main: ./cmd/tome/main.go
+  - id: tome
+    main: ./cmd/tome/main.go
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
     ldflags:
