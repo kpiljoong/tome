@@ -72,10 +72,23 @@ func (b *S3Backend) UploadFile(localPath, remotePath string) error {
 	}
 	defer file.Close()
 
+	// Check if object already exists in S3
 	s3Key := filepath.ToSlash(filepath.Join(b.Prefix, remotePath))
+	exists, err := b.Exists(s3Key)
+	if err != nil {
+		return fmt.Errorf("existence check failed: %w", err)
+	}
+	if exists {
+		// Compare local and remote hashes (via HeadObject ETag, if enabled)
+		// — but S3 ETag isn't always reliable.
+		// So we'll just log that we are skipping based on existence.
+		logx.Info("☁️  Skipped (already exists): s3://%s/%s", b.Bucket, s3Key)
+		return nil
+	}
 
+	// Upload if not exists
 	_, err = b.Uploader.Upload(context.TODO(), &s3.PutObjectInput{
-		Bucket:       &b.Bucket,
+		Bucket:       aws.String(b.Bucket),
 		Key:          aws.String(s3Key),
 		Body:         file,
 		StorageClass: types.StorageClassOnezoneIa,
@@ -85,7 +98,6 @@ func (b *S3Backend) UploadFile(localPath, remotePath string) error {
 	}
 
 	logx.Success("⬆️  %s → s3://%s/%s", localPath, b.Bucket, s3Key)
-	// fmt.Printf(" Uploaded %s to s3://%s/%s\n", localPath, b.Bucket, s3Key)
 	return nil
 }
 
@@ -148,8 +160,7 @@ func (b *S3Backend) ListJournal(namespace, query string) ([]*model.JournalEntry,
 }
 
 func (b *S3Backend) GetBlobByHash(hash string) ([]byte, error) {
-	safeHash := strings.ReplaceAll(hash, ":", "-")
-	key := filepath.ToSlash(filepath.Join(b.Prefix, "blobs", safeHash))
+	key := filepath.ToSlash(filepath.Join(b.Prefix, paths.RemoteBlobPath(hash)))
 	resp, err := b.Client.GetObject(context.TODO(), &s3.GetObjectInput{
 		Bucket: aws.String(b.Bucket),
 		Key:    aws.String(key),

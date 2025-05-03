@@ -8,6 +8,10 @@ import (
 type GitHubBackend struct {
 	RepoURL    string
 	LocalClone string
+	Owner      string
+	Repo       string
+	Prefix     string
+	Token      string
 }
 
 func NewGitHubBackend(repoURL string) (*GitHubBackend, error) {
