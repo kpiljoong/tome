@@ -2,13 +2,13 @@ package sync
 
 import (
 	"log"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/kpiljoong/tome/internal/backend"
-	"github.com/kpiljoong/tome/internal/backend/s3"
 	"github.com/kpiljoong/tome/internal/core"
+	"github.com/kpiljoong/tome/pkg/cliutil"
+	"github.com/kpiljoong/tome/pkg/logx"
 	"github.com/kpiljoong/tome/pkg/paths"
 )
 
@@ -31,20 +31,10 @@ var StatusCmd = &cobra.Command{
 		var backend backend.RemoteBackend
 		var err error
 
-		switch {
-		case strings.HasPrefix(from, "s3://"):
-			parts := strings.SplitN(strings.TrimPrefix(from, "s3://"), "/", 2)
-			bucket := parts[0]
-			prefix := ""
-			if len(parts) > 1 {
-				prefix = parts[1]
-			}
-			backend, err = s3.NewS3Backend(bucket, prefix)
-			if err != nil {
-				log.Fatalf("Failed to init S3 backend: %v", err)
-			}
-		default:
-			log.Fatalf("Unsupported backend: %s", from)
+		backend, err = cliutil.ResolveRemote(from, "")
+		if err != nil {
+			logx.Error("Failed to resolve remote: %v", err)
+			log.Fatalf("Sync aborted")
 		}
 
 		if err := core.Status(localPath, backend, jsonOut); err != nil {
