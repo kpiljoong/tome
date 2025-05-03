@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/kpiljoong/tome/pkg/logx"
 	"github.com/kpiljoong/tome/pkg/model"
+	"github.com/kpiljoong/tome/pkg/paths"
 )
 
 type S3Backend struct {
@@ -189,4 +191,22 @@ func (b *S3Backend) Describe() string {
 		return fmt.Sprintf("s3://%s/%s", b.Bucket, b.Prefix)
 	}
 	return fmt.Sprintf("s3://%s", b.Bucket)
+}
+
+func (b *S3Backend) GeneratePresignedURL(key string, expiry time.Duration) (string, error) {
+	presigner := s3.NewPresignClient(b.Client)
+
+	out, err := presigner.PresignGetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(b.Bucket),
+		Key:    aws.String(key),
+	}, s3.WithPresignExpires(expiry))
+	if err != nil {
+		return "", fmt.Errorf("failed to generate presigned URL: %w", err)
+	}
+
+	return out.URL, nil
+}
+
+func (b *S3Backend) BlobKey(hash string) string {
+	return filepath.ToSlash(filepath.Join(b.Prefix, "blobs", paths.SanitizeHash(hash)))
 }

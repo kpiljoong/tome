@@ -1,6 +1,10 @@
 package backend
 
-import "github.com/kpiljoong/tome/pkg/model"
+import (
+	"time"
+
+	"github.com/kpiljoong/tome/pkg/model"
+)
 
 type RemoteBackend interface {
 	UploadFile(localPath, remotePath string) error
@@ -11,5 +15,8 @@ type RemoteBackend interface {
 	GetBlobByHash(hash string) ([]byte, error)
 	ListNamespaces() ([]string, error)
 
+	GeneratePresignedURL(key string, expiry time.Duration) (string, error)
+
+	BlobKey(hash string) string
 	Describe() string
 }

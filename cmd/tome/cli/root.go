@@ -31,5 +31,6 @@ func init() {
 		sync.SyncCmd,
 		serve.ServeCmd,
 		configCmd,
+		ShareCmd,
 	)
 }

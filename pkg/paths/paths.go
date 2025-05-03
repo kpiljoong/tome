@@ -30,13 +30,13 @@ func BlobsDir() string {
 	return filepath.Join(TomeRoot(), RemoteBlobsPrefix)
 }
 
-func sanitizeHash(hash string) string {
+func SanitizeHash(hash string) string {
 	// Replace ':' with '_' to avoid issues with file paths
 	return strings.ReplaceAll(hash, ":", "_")
 }
 
 func BlobPath(hash string) string {
-	return filepath.Join(BlobsDir(), sanitizeHash(hash))
+	return filepath.Join(BlobsDir(), SanitizeHash(hash))
 }
 
 func JournalsDir() string {

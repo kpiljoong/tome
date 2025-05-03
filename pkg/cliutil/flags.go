@@ -12,6 +12,7 @@ const (
 	FlagQuiet       = "quiet"
 	FlagLimit       = "limit"
 	FlagSmart       = "smart"
+	FlagShorten     = "shorten"
 )
 
 func AttachOutputFlag(cmd *cobra.Command, defaultPath string, help ...string) *string {
@@ -23,7 +24,7 @@ func AttachOutputFlag(cmd *cobra.Command, defaultPath string, help ...string) *s
 }
 
 func AttachJSONFlag(cmd *cobra.Command) *bool {
-	return cmd.Flags().Bool("json", false, "Output in JSON format")
+	return cmd.Flags().Bool(FlagJSON, false, "Output in JSON format")
 }
 
 func AttachQuietFlag(cmd *cobra.Command) *bool {
@@ -39,7 +40,7 @@ func AttachRemoteFlag(cmd *cobra.Command, name string) *string {
 }
 
 func AttachModeFlag(cmd *cobra.Command) *string {
-	return cmd.Flags().String("mode", "push", "Sync mode: push, pull, sync")
+	return cmd.Flags().String(FlagMode, "push", "Sync mode: push, pull, sync")
 }
 
 func AttachInteractiveFlag(cmd *cobra.Command) *bool {
@@ -47,5 +48,9 @@ func AttachInteractiveFlag(cmd *cobra.Command) *bool {
 }
 
 func AttachSmartFlag(cmd *cobra.Command) *bool {
-	return cmd.Flags().Bool("smart", false, "Enable smart mode")
+	return cmd.Flags().Bool(FlagSmart, false, "Enable smart mode")
+}
+
+func AttachShortenFlag(cmd *cobra.Command) *bool {
+	return cmd.Flags().Bool(FlagShorten, false, "Enable shorten mode")
 }
