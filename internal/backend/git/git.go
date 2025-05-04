@@ -138,7 +138,7 @@ func (g *GitRepoBackend) GetBlobByHash(hash string) ([]byte, error) {
 }
 
 func (g *GitRepoBackend) ListNamespaces() ([]string, error) {
-	journalRoot := filepath.Join(g.LocalPath, "journals")  // 👈 not ~/.tome
+	journalRoot := filepath.Join(g.LocalPath, "journals")
 
 	logx.Info("Looking for namespaces in: %s", journalRoot)
 
