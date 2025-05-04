@@ -88,7 +88,7 @@ func (g *GitRepoBackend) Exists(remotePath string) (bool, error) {
 }
 
 func (g *GitRepoBackend) ListJournal(namespace, query string) ([]*model.JournalEntry, error) {
-	journalDir := paths.NamespaceDir(namespace)
+	journalDir := filepath.Join(g.LocalPath, "journals", namespace)
 	files, err := os.ReadDir(journalDir)
 	if err != nil {
 		return nil, err
@@ -127,7 +127,8 @@ func (g *GitRepoBackend) ListJournal(namespace, query string) ([]*model.JournalE
 }
 
 func (g *GitRepoBackend) GetBlobByHash(hash string) ([]byte, error) {
-	blobPath := paths.BlobPath(hash)
+	safeHash := paths.SanitizeHash(hash)
+	blobPath := filepath.Join(g.LocalPath, "blobs", safeHash)
 
 	data, err := os.ReadFile(blobPath)
 	if err != nil {
@@ -137,7 +138,9 @@ func (g *GitRepoBackend) GetBlobByHash(hash string) ([]byte, error) {
 }
 
 func (g *GitRepoBackend) ListNamespaces() ([]string, error) {
-	journalRoot := paths.JournalsDir()
+	journalRoot := filepath.Join(g.LocalPath, "journals")  // 👈 not ~/.tome
+
+	logx.Info("Looking for namespaces in: %s", journalRoot)
 
 	entries, err := os.ReadDir(journalRoot)
 	if err != nil {
@@ -147,6 +150,7 @@ func (g *GitRepoBackend) ListNamespaces() ([]string, error) {
 	var namespaces []string
 	for _, entry := range entries {
 		if entry.IsDir() {
+			logx.Info("  found entry: %s (dir=%v)", entry.Name(), entry.IsDir())
 			namespaces = append(namespaces, entry.Name())
 		}
 	}
