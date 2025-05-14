@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -143,19 +144,28 @@ func (b *S3Backend) ListJournal(namespace, query string) ([]*model.JournalEntry,
 			if err != nil {
 				continue
 			}
-			defer getOut.Body.Close()
 
-			var entry model.JournalEntry
-			if err := json.NewDecoder(getOut.Body).Decode(&entry); err != nil {
-				continue
-			}
+			func() {
+				defer getOut.Body.Close()
 
-			if strings.Contains(strings.ToLower(entry.Filename), strings.ToLower(query)) ||
-				strings.Contains(strings.ToLower(entry.FullPath), strings.ToLower(query)) {
-				entries = append(entries, &entry)
-			}
+				var entry model.JournalEntry
+				if err := json.NewDecoder(getOut.Body).Decode(&entry); err != nil {
+					return
+				}
+
+				if strings.Contains(strings.ToLower(entry.Filename), strings.ToLower(query)) ||
+					strings.Contains(strings.ToLower(entry.FullPath), strings.ToLower(query)) {
+					entries = append(entries, &entry)
+				}
+			}()
+
 		}
 	}
+
+	// Sort by newest first
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Timestamp.After(entries[j].Timestamp)
+	})
 	return entries, nil
 }
 
