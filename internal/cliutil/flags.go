@@ -87,4 +87,3 @@ func attachStringArrayFlag(cmd *cobra.Command, name string, short string, value 
 	}
 	return cmd.Flags().StringArrayP(name, short, value, helpText)
 }
-
