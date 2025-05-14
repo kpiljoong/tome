@@ -74,6 +74,14 @@ func Save(namespace, path string, smart bool) (*model.JournalEntry, error) {
 		existing, _ := Search(namespace, filepath.Base(path))
 		for _, e := range existing {
 			if e.FullPath == absPath && e.BlobHash == hash {
+				// Still append metadata if file meta changed (mtime or size)
+				info, statErr := os.Stat(absPath)
+				if statErr == nil {
+					if e.Meta["mtime"] != info.ModTime().Format(time.RFC3339) ||
+						e.Meta["size"] != fmt.Sprintf("%d", info.Size()) {
+						break // proceed to create new entry
+					}
+				}
 				return nil, fmt.Errorf("already saved")
 			}
 		}
