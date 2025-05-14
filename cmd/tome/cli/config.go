@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/kpiljoong/tome/pkg/config"
+	"github.com/kpiljoong/tome/internal/config"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )

@@ -3,7 +3,7 @@ package util
 import (
 	"sort"
 
-	"github.com/kpiljoong/tome/pkg/model"
+	"github.com/kpiljoong/tome/internal/model"
 )
 
 // SortEntriesByTimestampDesc sorts entries so that newest comes first.

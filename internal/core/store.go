@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kpiljoong/tome/pkg/model"
-	"github.com/kpiljoong/tome/pkg/paths"
-	"github.com/kpiljoong/tome/pkg/util"
+	"github.com/kpiljoong/tome/internal/model"
+	"github.com/kpiljoong/tome/internal/paths"
+	"github.com/kpiljoong/tome/internal/util"
 )
 
 func SaveDir(namespace, root string, smart bool) ([]*model.JournalEntry, error) {

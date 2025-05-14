@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kpiljoong/tome/pkg/model"
-	"github.com/kpiljoong/tome/pkg/paths"
+	"github.com/kpiljoong/tome/internal/model"
+	"github.com/kpiljoong/tome/internal/paths"
 )
 
 // PickEntry lets the user choose an entry from a list using terminal input.

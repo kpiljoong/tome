@@ -3,7 +3,7 @@ package cliutil
 import (
 	"fmt"
 
-	"github.com/kpiljoong/tome/pkg/model"
+	"github.com/kpiljoong/tome/internal/model"
 )
 
 func FormatEntry(e *model.JournalEntry) string {

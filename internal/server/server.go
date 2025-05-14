@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/kpiljoong/tome/internal/core"
-	"github.com/kpiljoong/tome/pkg/logx"
+	"github.com/kpiljoong/tome/internal/logx"
 )
 
 func Start(port int) error {

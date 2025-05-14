@@ -6,8 +6,8 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	coreModel "github.com/kpiljoong/tome/pkg/model"
-	"github.com/kpiljoong/tome/pkg/paths"
+	coreModel "github.com/kpiljoong/tome/internal/model"
+	"github.com/kpiljoong/tome/internal/paths"
 )
 
 type state int

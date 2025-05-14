@@ -3,7 +3,7 @@ package backend
 import (
 	"time"
 
-	"github.com/kpiljoong/tome/pkg/model"
+	"github.com/kpiljoong/tome/internal/model"
 )
 
 type RemoteBackend interface {

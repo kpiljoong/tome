@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kpiljoong/tome/pkg/model"
-	"github.com/kpiljoong/tome/pkg/paths"
+	"github.com/kpiljoong/tome/internal/model"
+	"github.com/kpiljoong/tome/internal/paths"
 )
 
 var jsonOut bool

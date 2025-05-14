@@ -6,10 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/kpiljoong/tome/internal/model"
+	"github.com/kpiljoong/tome/internal/paths"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/kpiljoong/tome/pkg/model"
-	"github.com/kpiljoong/tome/pkg/paths"
 )
 
 func TestSave_WritesBlobAndJournal(t *testing.T) {

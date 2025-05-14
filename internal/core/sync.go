@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/kpiljoong/tome/internal/backend"
-	"github.com/kpiljoong/tome/pkg/logx"
-	"github.com/kpiljoong/tome/pkg/paths"
+	"github.com/kpiljoong/tome/internal/logx"
+	"github.com/kpiljoong/tome/internal/paths"
 )
 
 func Sync(localPath string, remote backend.RemoteBackend) error {

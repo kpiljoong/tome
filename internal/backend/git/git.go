@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kpiljoong/tome/pkg/logx"
-	"github.com/kpiljoong/tome/pkg/model"
-	"github.com/kpiljoong/tome/pkg/paths"
-	"github.com/kpiljoong/tome/pkg/util"
+	"github.com/kpiljoong/tome/internal/logx"
+	"github.com/kpiljoong/tome/internal/model"
+	"github.com/kpiljoong/tome/internal/paths"
+	"github.com/kpiljoong/tome/internal/util"
 )
 
 type GitRepoBackend struct {

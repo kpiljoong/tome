@@ -10,9 +10,9 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/kpiljoong/tome/pkg/logx"
-	coreModel "github.com/kpiljoong/tome/pkg/model"
-	"github.com/kpiljoong/tome/pkg/paths"
+	"github.com/kpiljoong/tome/internal/logx"
+	coreModel "github.com/kpiljoong/tome/internal/model"
+	"github.com/kpiljoong/tome/internal/paths"
 )
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

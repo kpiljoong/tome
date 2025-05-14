@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/kpiljoong/tome/internal/backend"
-	"github.com/kpiljoong/tome/pkg/model"
-	"github.com/kpiljoong/tome/pkg/paths"
+	"github.com/kpiljoong/tome/internal/model"
+	"github.com/kpiljoong/tome/internal/paths"
 )
 
 func SyncBidirectional(localPath string, remote backend.RemoteBackend) error {

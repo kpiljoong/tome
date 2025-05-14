@@ -1,6 +1,6 @@
 package cliutil
 
-import "github.com/kpiljoong/tome/pkg/logx"
+import "github.com/kpiljoong/tome/internal/logx"
 
 type SyncStatus struct {
 	ID        string `json:"id"`

@@ -6,11 +6,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kpiljoong/tome/internal/cliutil"
 	"github.com/kpiljoong/tome/internal/core"
-	"github.com/kpiljoong/tome/pkg/cliutil"
-	"github.com/kpiljoong/tome/pkg/logx"
-	"github.com/kpiljoong/tome/pkg/model"
-	"github.com/kpiljoong/tome/pkg/util"
+	"github.com/kpiljoong/tome/internal/logx"
+	"github.com/kpiljoong/tome/internal/model"
+	"github.com/kpiljoong/tome/internal/util"
 )
 
 var LogCmd = &cobra.Command{

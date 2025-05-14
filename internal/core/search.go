@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kpiljoong/tome/pkg/model"
-	"github.com/kpiljoong/tome/pkg/paths"
-	"github.com/kpiljoong/tome/pkg/util"
+	"github.com/kpiljoong/tome/internal/model"
+	"github.com/kpiljoong/tome/internal/paths"
+	"github.com/kpiljoong/tome/internal/util"
 )
 
 func SearchAll(query string) ([]*model.JournalEntry, error) {

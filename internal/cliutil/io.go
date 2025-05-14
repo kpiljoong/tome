@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kpiljoong/tome/pkg/logx"
+	"github.com/kpiljoong/tome/internal/logx"
 )
 
 // WriteOutput writes data to a file or stdout.

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/kpiljoong/tome/internal/backend"
-	"github.com/kpiljoong/tome/pkg/paths"
+	"github.com/kpiljoong/tome/internal/paths"
 )
 
 func Pull(localPath string, remote backend.RemoteBackend) error {
