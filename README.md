@@ -1,5 +1,7 @@
 # Tome
 
+![Badge](https://hitscounter.dev/api/hit?url=https%3A%2F%2Fgithub.com%2Fkpiljoong%2Ftome&label=Visitor&icon=github&color=%23198754)
+
 **Tome** is a zero-runtime, append-only journal and blob store for files. Designed for developers and systems alike, it lets you save, search, sync, and share file snapshots efficiently — both locally and remotely (e.g., S3, GitHub).
 
 ## Features
