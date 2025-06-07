@@ -10,6 +10,54 @@ import (
 	"github.com/kpiljoong/tome/internal/paths"
 )
 
+func PullNamespace(namespace string, remote backend.RemoteBackend) error {
+	fmt.Printf("📥 Pulling namespace: %s\n", namespace)
+
+	journalRoot := paths.JournalsDir()
+	blobRoot := paths.BlobsDir()
+
+	_ = os.MkdirAll(filepath.Join(journalRoot, namespace), 0o755)
+	_ = os.MkdirAll(blobRoot, 0o755)
+
+	entries, err := remote.ListJournal(namespace, "")
+	if err != nil {
+		return fmt.Errorf("failed to list journal for namespace: %s: %w", namespace, err)
+	}
+
+	for _, entry := range entries {
+		entryPath := filepath.Join(journalRoot, namespace, entry.ID+".json")
+		if _, err := os.Stat(entryPath); err == nil {
+			continue
+		}
+
+		blobPath := paths.BlobPath(entry.BlobHash)
+		if _, err := os.Stat(blobPath); os.IsNotExist(err) {
+			blob, err := remote.GetBlobByHash(entry.BlobHash)
+			if err != nil {
+				fmt.Printf("⚠️  Failed to fetch blob %s: %v\n", entry.BlobHash, err)
+				continue
+			}
+			if err := os.WriteFile(blobPath, blob, 0o644); err != nil {
+				fmt.Printf("⚠️  Failed to write blob file %s: %v\n", blobPath, err)
+			}
+		}
+
+		data, err := json.MarshalIndent(entry, "", "  ")
+		if err != nil {
+			fmt.Printf("⚠️  Failed to serialize journal entry %s: %v\n", entry.ID, err)
+			continue
+		}
+
+		if err := os.WriteFile(entryPath, data, 0o644); err != nil {
+			fmt.Printf("⚠️  Failed to write journal file %s: %v\n", entryPath, err)
+			continue
+		}
+
+		fmt.Printf("✅ Pulled: %s/%s\n", namespace, entry.Filename)
+	}
+	return nil
+}
+
 func Pull(localPath string, remote backend.RemoteBackend) error {
 	fmt.Println("Pulling from remote...")
 

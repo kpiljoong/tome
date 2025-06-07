@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -23,6 +24,8 @@ var SyncCmd = &cobra.Command{
 		target, _ := cmd.Flags().GetString(cliutil.FlagTo)
 		mode, _ := cmd.Flags().GetString(cliutil.FlagMode)
 		cfg, _ := config.Load()
+		namespace, _ := cmd.Flags().GetString(cliutil.FlagNamespace)
+		fmt.Printf("Namespace: %s\n", namespace)
 
 		backend, err = cliutil.ResolveRemote(target, cfg.DefaultRemote)
 		if err != nil {
@@ -35,22 +38,32 @@ var SyncCmd = &cobra.Command{
 		switch mode {
 		case "push":
 			logx.Info("📤 Pushing local data to remote...")
-			err = core.Sync(paths.TomeRoot(), backend)
+			if namespace != "" {
+				logx.Info("📂 Namespace: %s", namespace)
+				err = core.SyncNamespace(namespace, backend)
+			} else {
+				logx.Info("📦 Syncing all namespaces...")
+				err = core.Sync(paths.TomeRoot(), backend)
+			}
 		case "pull":
 			logx.Info("📥 Pulling from remote to local...")
-			err = core.Pull(paths.TomeRoot(), backend)
+			if namespace != "" {
+				logx.Info("📂 Namespace: %s", namespace)
+				err = core.PullNamespace(namespace, backend)
+			} else {
+				logx.Info("📦 Pulling all namespaces...")
+				err = core.Pull(paths.TomeRoot(), backend)
+			}
 		case "sync":
 			logx.Info("🔄 Bidirectional sync...")
 			err = core.SyncBidirectional(paths.TomeRoot(), backend)
 		default:
 			logx.Error("Unknown sync mode: %s", mode)
-			// log.Fatalf("Unknown sync mode: %s", mode)
 		}
 
 		if err != nil {
 			logx.Error("Sync failed: %v", err)
 			log.Fatalf("Sync aborted")
-			// log.Fatalf("Sync failed: %v", err)
 		}
 		logx.Success("✅ Sync complete")
 	},
@@ -59,4 +72,5 @@ var SyncCmd = &cobra.Command{
 func init() {
 	cliutil.AttachRemoteFlag(SyncCmd, cliutil.FlagTo)
 	cliutil.AttachModeFlag(SyncCmd)
+	cliutil.AttachNamespaceFlag(SyncCmd)
 }
