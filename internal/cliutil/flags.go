@@ -15,6 +15,7 @@ const (
 	FlagShorten     = "shorten"
 	FlagExclude     = "exclude"
 	FlagAll         = "all"
+	FlagNamespace   = "namespace"
 )
 
 func AttachOutputFlag(cmd *cobra.Command, defaultPath string, help ...string) *string {
@@ -55,6 +56,10 @@ func AttachShortenFlag(cmd *cobra.Command) *bool {
 
 func AttachExcludeFlag(cmd *cobra.Command) *[]string {
 	return attachStringArrayFlag(cmd, FlagExclude, "e", nil, "Exclude entries matching this pattern")
+}
+
+func AttachNamespaceFlag(cmd *cobra.Command) *string {
+	return attachStringFlag(cmd, FlagNamespace, "n", "", "Namespace to use for the operation")
 }
 
 func AttachAllFlag(cmd *cobra.Command) *bool {
