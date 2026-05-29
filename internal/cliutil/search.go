@@ -23,8 +23,8 @@ func LocalSearch(namespace, query string) ([]*model.JournalEntry, error) {
 			continue
 		}
 
-		paths := filepath.Join(nsDir, f.Name())
-		data, err := os.ReadFile(paths)
+		path := filepath.Join(nsDir, f.Name())
+		data, err := os.ReadFile(path)
 		if err != nil {
 			continue
 		}
@@ -34,7 +34,9 @@ func LocalSearch(namespace, query string) ([]*model.JournalEntry, error) {
 			continue
 		}
 
-		if strings.Contains(entry.Filename, query) {
+		if query == "" ||
+			strings.EqualFold(entry.Filename, query) ||
+			strings.EqualFold(entry.FullPath, query) {
 			matches = append(matches, &entry)
 		}
 	}
