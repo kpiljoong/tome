@@ -35,6 +35,8 @@ coverage/
 
 # Generated documentation
 /docs/gen/
+docs/
+.codenav/
 
 # Cache
 *.cache

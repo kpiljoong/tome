@@ -23,7 +23,7 @@ func SyncNamespace(namespace string, remote backend.RemoteBackend) error {
 
 	for _, blobID := range blobIDs {
 		blobPath := paths.BlobPath(blobID)
-		remotePath := filepath.Join(paths.RemoteBlobsPrefix, blobID)
+		remotePath := paths.RemoteBlobPath(blobID)
 
 		if err := remote.UploadFile(blobPath, remotePath); err != nil {
 			logx.Warn("Failed to upload blob %s: %v", blobID, err)
