@@ -3,14 +3,12 @@ package core
 import (
 	"fmt"
 	"os"
-	"path/filepath"
+
+	"github.com/kpiljoong/tome/internal/paths"
 )
 
 func GetBlobByHash(hash string) ([]byte, error) {
-	baseDir := filepath.Join(os.Getenv("HOME"), ".tome", "blobs")
-	blobPath := filepath.Join(baseDir, hash)
-
-	data, err := os.ReadFile(blobPath)
+	data, err := os.ReadFile(paths.BlobPath(hash))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read blob: %w", err)
 	}

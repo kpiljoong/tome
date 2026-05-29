@@ -14,18 +14,22 @@ const (
 	RemoteBlobsPrefix    = "blobs"
 )
 
-var tomeRoot = filepath.Join(os.Getenv("HOME"), ".tome")
+var tomeRootOverride string
 
 func SetRoot(path string) {
-	tomeRoot = path
+	tomeRootOverride = path
 }
 
 func TomeRoot() string {
-	hoem, err := os.UserHomeDir()
+	if tomeRootOverride != "" {
+		return tomeRootOverride
+	}
+
+	home, err := os.UserHomeDir()
 	if err != nil {
 		panic("could not resolve $HOME")
 	}
-	return filepath.Join(hoem, ".tome")
+	return filepath.Join(home, ".tome")
 }
 
 func BlobsDir() string {

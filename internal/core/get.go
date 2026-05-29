@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
+
+	"github.com/kpiljoong/tome/internal/paths"
 )
 
 func Get(namespace, query string) ([]byte, error) {
@@ -35,10 +36,7 @@ func readBlob(hash string) ([]byte, error) {
 		return nil, fmt.Errorf("invalid hash format: %s", hash)
 	}
 
-	baseDir := filepath.Join(os.Getenv("HOME"), ".tome", "blobs")
-	blobPath := filepath.Join(baseDir, hash)
-
-	data, err := os.ReadFile(blobPath)
+	data, err := os.ReadFile(paths.BlobPath(hash))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read blob file: %w", err)
 	}

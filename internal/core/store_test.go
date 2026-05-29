@@ -14,6 +14,9 @@ import (
 func TestSave_WritesBlobAndJournal(t *testing.T) {
 	tmpDir := t.TempDir()
 	paths.SetRoot(tmpDir)
+	t.Cleanup(func() {
+		paths.SetRoot("")
+	})
 
 	testFile := filepath.Join(tmpDir, "test.txt")
 	content := []byte("this is a test")
