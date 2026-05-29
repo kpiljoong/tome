@@ -26,12 +26,14 @@ func PullNamespace(namespace string, remote backend.RemoteBackend) error {
 
 	for _, entry := range entries {
 		entryPath := filepath.Join(journalRoot, namespace, entry.ID+".json")
-		if _, err := os.Stat(entryPath); err == nil {
+		entryExists := fileExists(entryPath)
+		blobPath := paths.BlobPath(entry.BlobHash)
+		blobExists := fileExists(blobPath)
+		if entryExists && blobExists {
 			continue
 		}
 
-		blobPath := paths.BlobPath(entry.BlobHash)
-		if _, err := os.Stat(blobPath); os.IsNotExist(err) {
+		if !blobExists {
 			blob, err := remote.GetBlobByHash(entry.BlobHash)
 			if err != nil {
 				fmt.Printf("⚠️  Failed to fetch blob %s: %v\n", entry.BlobHash, err)
@@ -42,15 +44,17 @@ func PullNamespace(namespace string, remote backend.RemoteBackend) error {
 			}
 		}
 
-		data, err := json.MarshalIndent(entry, "", "  ")
-		if err != nil {
-			fmt.Printf("⚠️  Failed to serialize journal entry %s: %v\n", entry.ID, err)
-			continue
-		}
+		if !entryExists {
+			data, err := json.MarshalIndent(entry, "", "  ")
+			if err != nil {
+				fmt.Printf("⚠️  Failed to serialize journal entry %s: %v\n", entry.ID, err)
+				continue
+			}
 
-		if err := os.WriteFile(entryPath, data, 0o644); err != nil {
-			fmt.Printf("⚠️  Failed to write journal file %s: %v\n", entryPath, err)
-			continue
+			if err := os.WriteFile(entryPath, data, 0o644); err != nil {
+				fmt.Printf("⚠️  Failed to write journal file %s: %v\n", entryPath, err)
+				continue
+			}
 		}
 
 		fmt.Printf("✅ Pulled: %s/%s\n", namespace, entry.Filename)
@@ -83,13 +87,14 @@ func Pull(localPath string, remote backend.RemoteBackend) error {
 
 		for _, entry := range entries {
 			entryPath := filepath.Join(journalRoot, ns, entry.ID+".json")
-			if _, err := os.Stat(entryPath); err == nil {
+			entryExists := fileExists(entryPath)
+			blobPath := paths.BlobPath(entry.BlobHash)
+			blobExists := fileExists(blobPath)
+			if entryExists && blobExists {
 				continue
 			}
 
-			// blobPath := filepath.Join(blobRoot, entry.BlobHash)
-			blobPath := paths.BlobPath(entry.BlobHash)
-			if _, err := os.Stat(blobPath); os.IsNotExist(err) {
+			if !blobExists {
 				blob, err := remote.GetBlobByHash(entry.BlobHash)
 				if err != nil {
 					fmt.Printf("Failed to fetch blob %s: %v\n", entry.BlobHash, err)
@@ -98,12 +103,19 @@ func Pull(localPath string, remote backend.RemoteBackend) error {
 				_ = os.WriteFile(blobPath, blob, 0o644)
 			}
 
-			_ = os.MkdirAll(filepath.Dir(entryPath), 0o755)
-			data, _ := json.MarshalIndent(entry, "", "  ")
-			_ = os.WriteFile(entryPath, data, 0o644)
+			if !entryExists {
+				_ = os.MkdirAll(filepath.Dir(entryPath), 0o755)
+				data, _ := json.MarshalIndent(entry, "", "  ")
+				_ = os.WriteFile(entryPath, data, 0o644)
+			}
 
 			fmt.Printf("Pulled: %s/%s\n", ns, entry.Filename)
 		}
 	}
 	return nil
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

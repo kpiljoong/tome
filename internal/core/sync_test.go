@@ -18,8 +18,12 @@ type recordedUpload struct {
 }
 
 type recordingRemote struct {
-	uploads []recordedUpload
-	dirs    []recordedUpload
+	uploads      []recordedUpload
+	dirs         []recordedUpload
+	entries      []*model.JournalEntry
+	blobs        map[string][]byte
+	getBlobCalls []string
+	namespaces   []string
 }
 
 func (r *recordingRemote) UploadFile(localPath, remotePath string) error {
@@ -37,15 +41,16 @@ func (r *recordingRemote) UploadDir(localRoot, remotePrefix string) error {
 }
 
 func (r *recordingRemote) ListJournal(namespace, query string) ([]*model.JournalEntry, error) {
-	return nil, nil
+	return r.entries, nil
 }
 
 func (r *recordingRemote) GetBlobByHash(hash string) ([]byte, error) {
-	return nil, nil
+	r.getBlobCalls = append(r.getBlobCalls, hash)
+	return r.blobs[hash], nil
 }
 
 func (r *recordingRemote) ListNamespaces() ([]string, error) {
-	return nil, nil
+	return r.namespaces, nil
 }
 
 func (r *recordingRemote) GeneratePresignedURL(key string, expiry time.Duration) (string, error) {
@@ -94,4 +99,43 @@ func TestSyncNamespaceUsesSanitizedRemoteBlobPath(t *testing.T) {
 	require.Len(t, remote.dirs, 1)
 	assert.Equal(t, paths.NamespaceDir(namespace), remote.dirs[0].localPath)
 	assert.Equal(t, paths.RemoteNamespacePrefix(namespace), remote.dirs[0].remotePath)
+}
+
+func TestPullNamespaceFetchesBlobWhenJournalEntryAlreadyExists(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	const namespace = "workbooks"
+	const blobHash = "sha256:abc123"
+
+	entry := &model.JournalEntry{
+		ID:        "entry-1",
+		Timestamp: time.Date(2026, 5, 29, 0, 0, 0, 0, time.UTC),
+		Namespace: namespace,
+		Filename:  "plan.json",
+		FullPath:  "/tmp/plan.json",
+		BlobHash:  blobHash,
+	}
+
+	require.NoError(t, paths.EnsureDirExists(paths.NamespaceDir(namespace)))
+	entryData, err := json.Marshal(entry)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(paths.JournalPath(namespace, entry.ID), entryData, 0o644))
+	require.NoFileExists(t, paths.BlobPath(blobHash))
+
+	remote := &recordingRemote{
+		entries: []*model.JournalEntry{entry},
+		blobs: map[string][]byte{
+			blobHash: []byte("remote blob"),
+		},
+	}
+	require.NoError(t, PullNamespace(namespace, remote))
+
+	assert.Equal(t, []string{blobHash}, remote.getBlobCalls)
+	blobData, err := os.ReadFile(paths.BlobPath(blobHash))
+	require.NoError(t, err)
+	assert.Equal(t, []byte("remote blob"), blobData)
+
+	storedEntryData, err := os.ReadFile(paths.JournalPath(namespace, entry.ID))
+	require.NoError(t, err)
+	assert.JSONEq(t, string(entryData), string(storedEntryData))
 }
