@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,6 +25,7 @@ func PullNamespace(namespace string, remote backend.RemoteBackend) error {
 		return fmt.Errorf("failed to list journal for namespace: %s: %w", namespace, err)
 	}
 
+	var failures []error
 	for _, entry := range entries {
 		entryPath := filepath.Join(journalRoot, namespace, entry.ID+".json")
 		entryExists := fileExists(entryPath)
@@ -37,10 +39,13 @@ func PullNamespace(namespace string, remote backend.RemoteBackend) error {
 			blob, err := remote.GetBlobByHash(entry.BlobHash)
 			if err != nil {
 				fmt.Printf("⚠️  Failed to fetch blob %s: %v\n", entry.BlobHash, err)
+				failures = append(failures, fmt.Errorf("%s/%s: fetch blob %s: %w", namespace, entry.ID, entry.BlobHash, err))
 				continue
 			}
 			if err := os.WriteFile(blobPath, blob, 0o644); err != nil {
 				fmt.Printf("⚠️  Failed to write blob file %s: %v\n", blobPath, err)
+				failures = append(failures, fmt.Errorf("%s/%s: write blob %s: %w", namespace, entry.ID, blobPath, err))
+				continue
 			}
 		}
 
@@ -48,16 +53,21 @@ func PullNamespace(namespace string, remote backend.RemoteBackend) error {
 			data, err := json.MarshalIndent(entry, "", "  ")
 			if err != nil {
 				fmt.Printf("⚠️  Failed to serialize journal entry %s: %v\n", entry.ID, err)
+				failures = append(failures, fmt.Errorf("%s/%s: serialize journal entry: %w", namespace, entry.ID, err))
 				continue
 			}
 
 			if err := os.WriteFile(entryPath, data, 0o644); err != nil {
 				fmt.Printf("⚠️  Failed to write journal file %s: %v\n", entryPath, err)
+				failures = append(failures, fmt.Errorf("%s/%s: write journal %s: %w", namespace, entry.ID, entryPath, err))
 				continue
 			}
 		}
 
 		fmt.Printf("✅ Pulled: %s/%s\n", namespace, entry.Filename)
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("pull namespace %s completed with %d failure(s): %w", namespace, len(failures), errors.Join(failures...))
 	}
 	return nil
 }
@@ -78,10 +88,12 @@ func Pull(localPath string, remote backend.RemoteBackend) error {
 		return fmt.Errorf("failed to list namespaces: %w", err)
 	}
 
+	var failures []error
 	for _, ns := range namespaces {
 		entries, err := remote.ListJournal(ns, "")
 		if err != nil {
 			fmt.Printf("Skipping namespace %s: %v\n", ns, err)
+			failures = append(failures, fmt.Errorf("%s: list journal: %w", ns, err))
 			continue
 		}
 
@@ -98,19 +110,36 @@ func Pull(localPath string, remote backend.RemoteBackend) error {
 				blob, err := remote.GetBlobByHash(entry.BlobHash)
 				if err != nil {
 					fmt.Printf("Failed to fetch blob %s: %v\n", entry.BlobHash, err)
+					failures = append(failures, fmt.Errorf("%s/%s: fetch blob %s: %w", ns, entry.ID, entry.BlobHash, err))
 					continue
 				}
-				_ = os.WriteFile(blobPath, blob, 0o644)
+				if err := os.WriteFile(blobPath, blob, 0o644); err != nil {
+					failures = append(failures, fmt.Errorf("%s/%s: write blob %s: %w", ns, entry.ID, blobPath, err))
+					continue
+				}
 			}
 
 			if !entryExists {
-				_ = os.MkdirAll(filepath.Dir(entryPath), 0o755)
-				data, _ := json.MarshalIndent(entry, "", "  ")
-				_ = os.WriteFile(entryPath, data, 0o644)
+				if err := os.MkdirAll(filepath.Dir(entryPath), 0o755); err != nil {
+					failures = append(failures, fmt.Errorf("%s/%s: create journal dir: %w", ns, entry.ID, err))
+					continue
+				}
+				data, err := json.MarshalIndent(entry, "", "  ")
+				if err != nil {
+					failures = append(failures, fmt.Errorf("%s/%s: serialize journal entry: %w", ns, entry.ID, err))
+					continue
+				}
+				if err := os.WriteFile(entryPath, data, 0o644); err != nil {
+					failures = append(failures, fmt.Errorf("%s/%s: write journal %s: %w", ns, entry.ID, entryPath, err))
+					continue
+				}
 			}
 
 			fmt.Printf("Pulled: %s/%s\n", ns, entry.Filename)
 		}
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("pull completed with %d failure(s): %w", len(failures), errors.Join(failures...))
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -22,6 +23,7 @@ type recordingRemote struct {
 	dirs         []recordedUpload
 	entries      []*model.JournalEntry
 	blobs        map[string][]byte
+	blobErrs     map[string]error
 	getBlobCalls []string
 	namespaces   []string
 }
@@ -46,6 +48,9 @@ func (r *recordingRemote) ListJournal(namespace, query string) ([]*model.Journal
 
 func (r *recordingRemote) GetBlobByHash(hash string) ([]byte, error) {
 	r.getBlobCalls = append(r.getBlobCalls, hash)
+	if err := r.blobErrs[hash]; err != nil {
+		return nil, err
+	}
 	return r.blobs[hash], nil
 }
 
@@ -138,4 +143,35 @@ func TestPullNamespaceFetchesBlobWhenJournalEntryAlreadyExists(t *testing.T) {
 	storedEntryData, err := os.ReadFile(paths.JournalPath(namespace, entry.ID))
 	require.NoError(t, err)
 	assert.JSONEq(t, string(entryData), string(storedEntryData))
+}
+
+func TestPullNamespaceReturnsErrorWhenBlobFetchFails(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	const namespace = "workbooks"
+	const blobHash = "sha256:missing"
+
+	entry := &model.JournalEntry{
+		ID:        "entry-1",
+		Timestamp: time.Date(2026, 5, 29, 0, 0, 0, 0, time.UTC),
+		Namespace: namespace,
+		Filename:  "plan.json",
+		FullPath:  "/tmp/plan.json",
+		BlobHash:  blobHash,
+	}
+
+	remote := &recordingRemote{
+		entries: []*model.JournalEntry{entry},
+		blobErrs: map[string]error{
+			blobHash: errors.New("remote blob unavailable"),
+		},
+	}
+
+	err := PullNamespace(namespace, remote)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "pull namespace workbooks completed with 1 failure")
+	assert.ErrorContains(t, err, "fetch blob sha256:missing")
+	assert.Equal(t, []string{blobHash}, remote.getBlobCalls)
+	require.NoFileExists(t, paths.BlobPath(blobHash))
+	require.NoFileExists(t, paths.JournalPath(namespace, entry.ID))
 }
