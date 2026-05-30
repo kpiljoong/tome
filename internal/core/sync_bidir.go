@@ -73,11 +73,12 @@ func SyncBidirectional(localPath string, remote backend.RemoteBackend) error {
 
 			journalPath := paths.JournalPath(ns, le.ID)
 			blobPath := paths.BlobPath(le.BlobHash)
-			if err := remote.UploadFile(journalPath, filepath.ToSlash(paths.RemoteJournalPath(ns, le.ID))); err != nil {
-				failures = append(failures, fmt.Errorf("%s/%s: upload journal %s: %w", ns, le.ID, journalPath, err))
-			}
 			if err := remote.UploadFile(blobPath, filepath.ToSlash(paths.RemoteBlobPath(le.BlobHash))); err != nil {
 				failures = append(failures, fmt.Errorf("%s/%s: upload blob %s: %w", ns, le.ID, blobPath, err))
+				continue
+			}
+			if err := remote.UploadFile(journalPath, filepath.ToSlash(paths.RemoteJournalPath(ns, le.ID))); err != nil {
+				failures = append(failures, fmt.Errorf("%s/%s: upload journal %s: %w", ns, le.ID, journalPath, err))
 			}
 		}
 	}

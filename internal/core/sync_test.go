@@ -118,6 +118,61 @@ func TestSyncNamespaceUsesSanitizedRemoteBlobPath(t *testing.T) {
 	assert.Equal(t, paths.RemoteNamespacePrefix(namespace), remote.dirs[0].remotePath)
 }
 
+func TestSyncNamespaceReturnsErrorWhenBlobUploadFails(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	const namespace = "workbooks"
+	const blobHash = "sha256:abc123"
+
+	require.NoError(t, paths.EnsureDirExists(paths.BlobsDir()))
+	require.NoError(t, paths.EnsureDirExists(paths.NamespaceDir(namespace)))
+	require.NoError(t, os.WriteFile(paths.BlobPath(blobHash), []byte("blob"), 0o644))
+
+	entry := &model.JournalEntry{
+		ID:        "entry-1",
+		Timestamp: time.Date(2026, 5, 29, 0, 0, 0, 0, time.UTC),
+		Namespace: namespace,
+		Filename:  "plan.json",
+		FullPath:  "/tmp/plan.json",
+		BlobHash:  blobHash,
+	}
+	entryData, err := json.Marshal(entry)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(paths.JournalPath(namespace, entry.ID), entryData, 0o644))
+
+	remote := &recordingRemote{
+		uploadErrs: map[string]error{
+			paths.RemoteBlobPath(blobHash): errors.New("remote blob denied"),
+		},
+	}
+
+	err = SyncNamespace(namespace, remote)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "namespace sync workbooks completed with 1 blob failure")
+	assert.ErrorContains(t, err, "upload blob sha256:abc123")
+
+	require.Len(t, remote.uploads, 1)
+	assert.Equal(t, paths.RemoteBlobPath(blobHash), remote.uploads[0].remotePath)
+	assert.Empty(t, remote.dirs)
+}
+
+func TestSyncNamespaceReturnsErrorWhenJournalCannotBeParsed(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	const namespace = "workbooks"
+	require.NoError(t, paths.EnsureDirExists(paths.NamespaceDir(namespace)))
+	require.NoError(t, os.WriteFile(paths.JournalPath(namespace, "entry-1"), []byte("{"), 0o644))
+
+	remote := &recordingRemote{}
+
+	err := SyncNamespace(namespace, remote)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "failed to get referenced blobs")
+	assert.ErrorContains(t, err, "parse journal")
+	assert.Empty(t, remote.uploads)
+	assert.Empty(t, remote.dirs)
+}
+
 func TestPullNamespaceFetchesBlobWhenJournalEntryAlreadyExists(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
@@ -257,6 +312,44 @@ func TestSyncBidirectionalReturnsErrorWhenUploadFails(t *testing.T) {
 	assert.ErrorContains(t, err, "remote journal denied")
 
 	require.Len(t, remote.uploads, 2)
-	assert.Equal(t, remoteJournalPath, remote.uploads[0].remotePath)
-	assert.Equal(t, paths.RemoteBlobPath(blobHash), remote.uploads[1].remotePath)
+	assert.Equal(t, paths.RemoteBlobPath(blobHash), remote.uploads[0].remotePath)
+	assert.Equal(t, remoteJournalPath, remote.uploads[1].remotePath)
+}
+
+func TestSyncBidirectionalSkipsJournalUploadWhenBlobUploadFails(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	const namespace = "workbooks"
+	const blobHash = "sha256:abc123"
+
+	require.NoError(t, paths.EnsureDirExists(paths.BlobsDir()))
+	require.NoError(t, paths.EnsureDirExists(paths.NamespaceDir(namespace)))
+	require.NoError(t, os.WriteFile(paths.BlobPath(blobHash), []byte("local blob"), 0o644))
+
+	entry := &model.JournalEntry{
+		ID:        "entry-1",
+		Timestamp: time.Date(2026, 5, 29, 0, 0, 0, 0, time.UTC),
+		Namespace: namespace,
+		Filename:  "plan.json",
+		FullPath:  "/tmp/plan.json",
+		BlobHash:  blobHash,
+	}
+	entryData, err := json.Marshal(entry)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(paths.JournalPath(namespace, entry.ID), entryData, 0o644))
+
+	remote := &recordingRemote{
+		uploadErrs: map[string]error{
+			paths.RemoteBlobPath(blobHash): errors.New("remote blob denied"),
+		},
+	}
+
+	err = SyncBidirectional(paths.TomeRoot(), remote)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "bidirectional sync completed with 1 failure")
+	assert.ErrorContains(t, err, "upload blob")
+	assert.ErrorContains(t, err, "remote blob denied")
+
+	require.Len(t, remote.uploads, 1)
+	assert.Equal(t, paths.RemoteBlobPath(blobHash), remote.uploads[0].remotePath)
 }

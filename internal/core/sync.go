@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,13 +22,18 @@ func SyncNamespace(namespace string, remote backend.RemoteBackend) error {
 		return fmt.Errorf("failed to get referenced blobs: %w", err)
 	}
 
+	var failures []error
 	for _, blobID := range blobIDs {
 		blobPath := paths.BlobPath(blobID)
 		remotePath := paths.RemoteBlobPath(blobID)
 
 		if err := remote.UploadFile(blobPath, remotePath); err != nil {
 			logx.Warn("Failed to upload blob %s: %v", blobID, err)
+			failures = append(failures, fmt.Errorf("upload blob %s: %w", blobID, err))
 		}
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("namespace sync %s completed with %d blob failure(s): %w", namespace, len(failures), errors.Join(failures...))
 	}
 
 	journalPath := paths.NamespaceDir(namespace)
@@ -49,6 +55,7 @@ func getReferencedBlobs(namespace string) ([]string, error) {
 
 	seen := make(map[string]bool)
 	var blobIDs []string
+	var failures []error
 
 	for _, f := range files {
 		if f.IsDir() || !strings.HasSuffix(f.Name(), ".json") {
@@ -57,21 +64,23 @@ func getReferencedBlobs(namespace string) ([]string, error) {
 		fullPath := filepath.Join(journalDir, f.Name())
 		data, err := os.ReadFile(fullPath)
 		if err != nil {
-			logx.Warn("Faeild to read journal: %s", fullPath)
+			failures = append(failures, fmt.Errorf("read journal %s: %w", fullPath, err))
 			continue
 		}
 		var entry model.JournalEntry
 		if err := json.Unmarshal(data, &entry); err != nil {
-			logx.Warn("Failed to parse journal: %s", fullPath)
+			failures = append(failures, fmt.Errorf("parse journal %s: %w", fullPath, err))
 			continue
 		}
 
 		hash := entry.BlobHash
 		if hash != "" && !seen[hash] {
-			fmt.Printf("===== Found blob: %s\n", hash)
 			seen[hash] = true
 			blobIDs = append(blobIDs, hash)
 		}
+	}
+	if len(failures) > 0 {
+		return nil, fmt.Errorf("collect referenced blobs for namespace %s completed with %d failure(s): %w", namespace, len(failures), errors.Join(failures...))
 	}
 	return blobIDs, nil
 }
