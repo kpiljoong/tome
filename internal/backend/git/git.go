@@ -2,6 +2,7 @@ package git
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -91,10 +92,14 @@ func (g *GitRepoBackend) ListJournal(namespace, query string) ([]*model.JournalE
 	journalDir := filepath.Join(g.LocalPath, "journals", namespace)
 	files, err := os.ReadDir(journalDir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
 	var results []*model.JournalEntry
+	var failures []error
 	query = strings.ToLower(query)
 
 	for _, file := range files {
@@ -104,11 +109,13 @@ func (g *GitRepoBackend) ListJournal(namespace, query string) ([]*model.JournalE
 		fullPath := filepath.Join(journalDir, file.Name())
 		data, err := os.ReadFile(fullPath)
 		if err != nil {
+			failures = append(failures, fmt.Errorf("read journal %s: %w", fullPath, err))
 			continue
 		}
 
 		var entry model.JournalEntry
 		if err := json.Unmarshal(data, &entry); err != nil {
+			failures = append(failures, fmt.Errorf("decode journal %s: %w", fullPath, err))
 			continue
 		}
 
@@ -117,6 +124,9 @@ func (g *GitRepoBackend) ListJournal(namespace, query string) ([]*model.JournalE
 			strings.Contains(strings.ToLower(entry.FullPath), query) {
 			results = append(results, &entry)
 		}
+	}
+	if len(failures) > 0 {
+		return nil, fmt.Errorf("list git journal %s completed with %d failure(s): %w", namespace, len(failures), errors.Join(failures...))
 	}
 
 	sort.Slice(results, func(i, j int) bool {

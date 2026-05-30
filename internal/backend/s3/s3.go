@@ -3,6 +3,7 @@ package s3
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -121,6 +122,8 @@ func (b *S3Backend) ListJournal(namespace, query string) ([]*model.JournalEntry,
 	prefix := filepath.ToSlash(filepath.Join(b.Prefix, "journals", namespace)) + "/"
 
 	var entries []*model.JournalEntry
+	var failures []error
+	query = strings.ToLower(query)
 	paginator := s3.NewListObjectsV2Paginator(b.Client, &s3.ListObjectsV2Input{
 		Bucket: aws.String(b.Bucket),
 		Prefix: aws.String(prefix),
@@ -133,33 +136,32 @@ func (b *S3Backend) ListJournal(namespace, query string) ([]*model.JournalEntry,
 		}
 
 		for _, obj := range page.Contents {
-			if !strings.HasSuffix(*obj.Key, ".json") {
+			key := aws.ToString(obj.Key)
+			if !strings.HasSuffix(key, ".json") {
 				continue
 			}
 
 			getOut, err := b.Client.GetObject(context.TODO(), &s3.GetObjectInput{
 				Bucket: aws.String(b.Bucket),
-				Key:    obj.Key,
+				Key:    aws.String(key),
 			})
 			if err != nil {
+				failures = append(failures, fmt.Errorf("get journal object %s: %w", key, err))
 				continue
 			}
 
-			func() {
-				defer getOut.Body.Close()
-
-				var entry model.JournalEntry
-				if err := json.NewDecoder(getOut.Body).Decode(&entry); err != nil {
-					return
-				}
-
-				if strings.Contains(strings.ToLower(entry.Filename), strings.ToLower(query)) ||
-					strings.Contains(strings.ToLower(entry.FullPath), strings.ToLower(query)) {
-					entries = append(entries, &entry)
-				}
-			}()
-
+			entry, err := decodeJournalObject(key, getOut.Body)
+			if err != nil {
+				failures = append(failures, err)
+				continue
+			}
+			if journalEntryMatchesQuery(entry, query) {
+				entries = append(entries, entry)
+			}
 		}
+	}
+	if len(failures) > 0 {
+		return nil, fmt.Errorf("list s3 journal %s completed with %d failure(s): %w", namespace, len(failures), errors.Join(failures...))
 	}
 
 	// Sort by newest first
@@ -230,4 +232,20 @@ func (b *S3Backend) GeneratePresignedURL(key string, expiry time.Duration) (stri
 
 func (b *S3Backend) BlobKey(hash string) string {
 	return filepath.ToSlash(filepath.Join(b.Prefix, "blobs", paths.SanitizeHash(hash)))
+}
+
+func decodeJournalObject(key string, body io.ReadCloser) (*model.JournalEntry, error) {
+	defer body.Close()
+
+	var entry model.JournalEntry
+	if err := json.NewDecoder(body).Decode(&entry); err != nil {
+		return nil, fmt.Errorf("decode journal object %s: %w", key, err)
+	}
+	return &entry, nil
+}
+
+func journalEntryMatchesQuery(entry *model.JournalEntry, query string) bool {
+	return query == "" ||
+		strings.Contains(strings.ToLower(entry.Filename), query) ||
+		strings.Contains(strings.ToLower(entry.FullPath), query)
 }
