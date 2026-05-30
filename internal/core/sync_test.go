@@ -19,17 +19,23 @@ type recordedUpload struct {
 }
 
 type recordingRemote struct {
-	uploads      []recordedUpload
-	dirs         []recordedUpload
-	entries      []*model.JournalEntry
-	blobs        map[string][]byte
-	blobErrs     map[string]error
-	getBlobCalls []string
-	namespaces   []string
+	uploads           []recordedUpload
+	dirs              []recordedUpload
+	entries           []*model.JournalEntry
+	blobs             map[string][]byte
+	blobErrs          map[string]error
+	getBlobCalls      []string
+	namespaces        []string
+	uploadErrs        map[string]error
+	listJournalErrs   map[string]error
+	listNamespacesErr error
 }
 
 func (r *recordingRemote) UploadFile(localPath, remotePath string) error {
 	r.uploads = append(r.uploads, recordedUpload{localPath: localPath, remotePath: remotePath})
+	if err := r.uploadErrs[remotePath]; err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -43,6 +49,9 @@ func (r *recordingRemote) UploadDir(localRoot, remotePrefix string) error {
 }
 
 func (r *recordingRemote) ListJournal(namespace, query string) ([]*model.JournalEntry, error) {
+	if err := r.listJournalErrs[namespace]; err != nil {
+		return nil, err
+	}
 	return r.entries, nil
 }
 
@@ -55,6 +64,9 @@ func (r *recordingRemote) GetBlobByHash(hash string) ([]byte, error) {
 }
 
 func (r *recordingRemote) ListNamespaces() ([]string, error) {
+	if r.listNamespacesErr != nil {
+		return nil, r.listNamespacesErr
+	}
 	return r.namespaces, nil
 }
 
@@ -174,4 +186,77 @@ func TestPullNamespaceReturnsErrorWhenBlobFetchFails(t *testing.T) {
 	assert.Equal(t, []string{blobHash}, remote.getBlobCalls)
 	require.NoFileExists(t, paths.BlobPath(blobHash))
 	require.NoFileExists(t, paths.JournalPath(namespace, entry.ID))
+}
+
+func TestSyncBidirectionalReturnsErrorWhenRemoteBlobFetchFails(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	const namespace = "workbooks"
+	const blobHash = "sha256:missing"
+
+	entry := &model.JournalEntry{
+		ID:        "entry-1",
+		Timestamp: time.Date(2026, 5, 29, 0, 0, 0, 0, time.UTC),
+		Namespace: namespace,
+		Filename:  "plan.json",
+		FullPath:  "/tmp/plan.json",
+		BlobHash:  blobHash,
+	}
+
+	remote := &recordingRemote{
+		namespaces: []string{namespace},
+		entries:    []*model.JournalEntry{entry},
+		blobErrs: map[string]error{
+			blobHash: errors.New("remote blob unavailable"),
+		},
+	}
+
+	err := SyncBidirectional(paths.TomeRoot(), remote)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "bidirectional sync completed with 1 failure")
+	assert.ErrorContains(t, err, "fetch blob sha256:missing")
+	assert.Equal(t, []string{blobHash}, remote.getBlobCalls)
+	require.NoFileExists(t, paths.BlobPath(blobHash))
+	require.NoFileExists(t, paths.JournalPath(namespace, entry.ID))
+}
+
+func TestSyncBidirectionalReturnsErrorWhenUploadFails(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	const namespace = "workbooks"
+	const blobHash = "sha256:abc123"
+	const entryID = "entry-1"
+
+	require.NoError(t, paths.EnsureDirExists(paths.BlobsDir()))
+	require.NoError(t, paths.EnsureDirExists(paths.NamespaceDir(namespace)))
+	require.NoError(t, os.WriteFile(paths.BlobPath(blobHash), []byte("local blob"), 0o644))
+
+	entry := &model.JournalEntry{
+		ID:        entryID,
+		Timestamp: time.Date(2026, 5, 29, 0, 0, 0, 0, time.UTC),
+		Namespace: namespace,
+		Filename:  "plan.json",
+		FullPath:  "/tmp/plan.json",
+		BlobHash:  blobHash,
+	}
+	entryData, err := json.Marshal(entry)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(paths.JournalPath(namespace, entry.ID), entryData, 0o644))
+
+	remoteJournalPath := paths.RemoteJournalPath(namespace, entryID)
+	remote := &recordingRemote{
+		uploadErrs: map[string]error{
+			remoteJournalPath: errors.New("remote journal denied"),
+		},
+	}
+
+	err = SyncBidirectional(paths.TomeRoot(), remote)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "bidirectional sync completed with 1 failure")
+	assert.ErrorContains(t, err, "upload journal")
+	assert.ErrorContains(t, err, "remote journal denied")
+
+	require.Len(t, remote.uploads, 2)
+	assert.Equal(t, remoteJournalPath, remote.uploads[0].remotePath)
+	assert.Equal(t, paths.RemoteBlobPath(blobHash), remote.uploads[1].remotePath)
 }
