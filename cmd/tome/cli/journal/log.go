@@ -43,13 +43,22 @@ var LogCmd = &cobra.Command{
 			remote, err := cliutil.ResolveRemote(from, "")
 			if err != nil {
 				logx.Error("❌ Failed to resolve remote: %v", err)
+				return
 			}
 			nsList := []string{namespace}
 			if namespace == "" {
-				nsList, _ = remote.ListNamespaces()
+				nsList, err = remote.ListNamespaces()
+				if err != nil {
+					logx.Error("❌ Failed to list remote namespaces: %v", err)
+					return
+				}
 			}
 			for _, ns := range nsList {
-				nsEntries, _ := remote.ListJournal(ns, query)
+				nsEntries, err := remote.ListJournal(ns, query)
+				if err != nil {
+					logx.Error("❌ Failed to list remote journal for %s: %v", ns, err)
+					return
+				}
 				entries = append(entries, nsEntries...)
 			}
 		} else {

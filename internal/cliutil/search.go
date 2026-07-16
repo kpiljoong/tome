@@ -11,7 +11,10 @@ import (
 )
 
 func LocalSearch(namespace, query string) ([]*model.JournalEntry, error) {
-	nsDir := paths.NamespaceDir(namespace)
+	nsDir, err := paths.SafeNamespaceDir(namespace)
+	if err != nil {
+		return nil, err
+	}
 	files, err := os.ReadDir(nsDir)
 	if err != nil {
 		return nil, err

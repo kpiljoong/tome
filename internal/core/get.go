@@ -10,6 +10,9 @@ import (
 )
 
 func Get(namespace, query string) ([]byte, error) {
+	if err := paths.ValidateNamespace(namespace); err != nil {
+		return nil, fmt.Errorf("invalid namespace: %w", err)
+	}
 	entries, err := Search(namespace, query)
 	if err != nil {
 		return nil, fmt.Errorf("search failed: %w", err)
@@ -36,7 +39,11 @@ func readBlob(hash string) ([]byte, error) {
 		return nil, fmt.Errorf("invalid hash format: %s", hash)
 	}
 
-	data, err := os.ReadFile(paths.BlobPath(hash))
+	path, err := paths.SafeBlobPath(hash)
+	if err != nil {
+		return nil, fmt.Errorf("invalid hash format: %w", err)
+	}
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read blob file: %w", err)
 	}

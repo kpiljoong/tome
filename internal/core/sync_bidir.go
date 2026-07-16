@@ -32,6 +32,10 @@ func SyncBidirectional(localPath string, remote backend.RemoteBackend) error {
 
 	var failures []error
 	for ns := range nsMap {
+		if err := paths.ValidateNamespace(ns); err != nil {
+			failures = append(failures, fmt.Errorf("namespace=%s sync_phase=validate_namespace: %w", ns, err))
+			continue
+		}
 		fmt.Printf("Syncing namespace: %s\n", ns)
 
 		remoteEntries := map[string]*model.JournalEntry{}
@@ -49,6 +53,10 @@ func SyncBidirectional(localPath string, remote backend.RemoteBackend) error {
 			continue
 		}
 		for _, e := range remoteList {
+			if err := validateSyncEntry(ns, e); err != nil {
+				failures = append(failures, err)
+				continue
+			}
 			remoteEntries[e.ID] = e
 		}
 
@@ -69,12 +77,16 @@ func SyncBidirectional(localPath string, remote backend.RemoteBackend) error {
 			if _, exists := remoteEntries[id]; exists {
 				continue
 			}
+			if err := validateSyncEntry(ns, le); err != nil {
+				failures = append(failures, err)
+				continue
+			}
 			fmt.Printf("Pushing %s\n", le.Filename)
 
-			journalPath := paths.JournalPath(ns, le.ID)
-			blobPath := paths.BlobPath(le.BlobHash)
+			journalPath, _ := paths.SafeJournalPath(ns, le.ID)
+			blobPath, _ := paths.SafeBlobPath(le.BlobHash)
 			if err := remote.UploadFile(blobPath, filepath.ToSlash(paths.RemoteBlobPath(le.BlobHash))); err != nil {
-				failures = append(failures, fmt.Errorf("%s/%s: upload blob %s: %w", ns, le.ID, blobPath, err))
+				failures = append(failures, backendBlobOpError(ns, le.ID, le.BlobHash, "UploadFile", err))
 				continue
 			}
 			if err := remote.UploadFile(journalPath, filepath.ToSlash(paths.RemoteJournalPath(ns, le.ID))); err != nil {
@@ -149,27 +161,33 @@ func loadLocalEntriesForBidirectional(namespace string) (map[string]*model.Journ
 }
 
 func pullRemoteEntry(namespace string, entry *model.JournalEntry, remote backend.RemoteBackend) error {
+	if err := validateSyncEntry(namespace, entry); err != nil {
+		return err
+	}
 	if err := paths.EnsureDirExists(paths.BlobsDir()); err != nil {
 		return fmt.Errorf("%s/%s: create blob dir: %w", namespace, entry.ID, err)
 	}
 
 	blob, err := remote.GetBlobByHash(entry.BlobHash)
 	if err != nil {
-		return fmt.Errorf("%s/%s: fetch blob %s: %w", namespace, entry.ID, entry.BlobHash, err)
+		return backendBlobOpError(namespace, entry.ID, entry.BlobHash, "GetBlobByHash", err)
 	}
-	if err := os.WriteFile(paths.BlobPath(entry.BlobHash), blob, 0o644); err != nil {
-		return fmt.Errorf("%s/%s: write blob %s: %w", namespace, entry.ID, paths.BlobPath(entry.BlobHash), err)
+	blobPath, _ := paths.SafeBlobPath(entry.BlobHash)
+	if err := os.WriteFile(blobPath, blob, 0o644); err != nil {
+		return fmt.Errorf("%s/%s: write blob %s: %w", namespace, entry.ID, blobPath, err)
 	}
 
-	if err := paths.EnsureDirExists(paths.NamespaceDir(namespace)); err != nil {
+	journalDir, _ := paths.SafeNamespaceDir(namespace)
+	if err := paths.EnsureDirExists(journalDir); err != nil {
 		return fmt.Errorf("%s/%s: create journal dir: %w", namespace, entry.ID, err)
 	}
 	journalDelta, err := json.MarshalIndent(entry, "", "  ")
 	if err != nil {
 		return fmt.Errorf("%s/%s: serialize journal entry: %w", namespace, entry.ID, err)
 	}
-	if err := os.WriteFile(paths.JournalPath(namespace, entry.ID), journalDelta, 0o644); err != nil {
-		return fmt.Errorf("%s/%s: write journal %s: %w", namespace, entry.ID, paths.JournalPath(namespace, entry.ID), err)
+	journalPath, _ := paths.SafeJournalPath(namespace, entry.ID)
+	if err := os.WriteFile(journalPath, journalDelta, 0o644); err != nil {
+		return fmt.Errorf("%s/%s: write journal %s: %w", namespace, entry.ID, journalPath, err)
 	}
 
 	return nil

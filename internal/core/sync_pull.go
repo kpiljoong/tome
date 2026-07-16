@@ -12,13 +12,20 @@ import (
 )
 
 func PullNamespace(namespace string, remote backend.RemoteBackend) error {
+	journalDir, err := paths.SafeNamespaceDir(namespace)
+	if err != nil {
+		return fmt.Errorf("invalid namespace for pull: %w", err)
+	}
 	fmt.Printf("📥 Pulling namespace: %s\n", namespace)
 
-	journalRoot := paths.JournalsDir()
 	blobRoot := paths.BlobsDir()
 
-	_ = os.MkdirAll(filepath.Join(journalRoot, namespace), 0o755)
-	_ = os.MkdirAll(blobRoot, 0o755)
+	if err := os.MkdirAll(journalDir, 0o755); err != nil {
+		return fmt.Errorf("create journal directory for namespace %s: %w", namespace, err)
+	}
+	if err := os.MkdirAll(blobRoot, 0o755); err != nil {
+		return fmt.Errorf("create blob directory: %w", err)
+	}
 
 	entries, err := remote.ListJournal(namespace, "")
 	if err != nil {
@@ -27,9 +34,13 @@ func PullNamespace(namespace string, remote backend.RemoteBackend) error {
 
 	var failures []error
 	for _, entry := range entries {
-		entryPath := filepath.Join(journalRoot, namespace, entry.ID+".json")
+		if err := validateSyncEntry(namespace, entry); err != nil {
+			failures = append(failures, err)
+			continue
+		}
+		entryPath, _ := paths.SafeJournalPath(namespace, entry.ID)
 		entryExists := fileExists(entryPath)
-		blobPath := paths.BlobPath(entry.BlobHash)
+		blobPath, _ := paths.SafeBlobPath(entry.BlobHash)
 		blobExists := fileExists(blobPath)
 		if entryExists && blobExists {
 			continue
@@ -39,7 +50,7 @@ func PullNamespace(namespace string, remote backend.RemoteBackend) error {
 			blob, err := remote.GetBlobByHash(entry.BlobHash)
 			if err != nil {
 				fmt.Printf("⚠️  Failed to fetch blob %s: %v\n", entry.BlobHash, err)
-				failures = append(failures, fmt.Errorf("%s/%s: fetch blob %s: %w", namespace, entry.ID, entry.BlobHash, err))
+				failures = append(failures, backendBlobOpError(namespace, entry.ID, entry.BlobHash, "GetBlobByHash", err))
 				continue
 			}
 			if err := os.WriteFile(blobPath, blob, 0o644); err != nil {
@@ -75,13 +86,15 @@ func PullNamespace(namespace string, remote backend.RemoteBackend) error {
 func Pull(localPath string, remote backend.RemoteBackend) error {
 	fmt.Println("Pulling from remote...")
 
-	// journalRoot := filepath.Join(localPath, "journals")
 	journalRoot := paths.JournalsDir()
-	// blobRoot := filepath.Join(localPath, "blobs")
 	blobRoot := paths.BlobsDir()
 
-	_ = os.MkdirAll(journalRoot, 0o755)
-	_ = os.MkdirAll(blobRoot, 0o755)
+	if err := os.MkdirAll(journalRoot, 0o755); err != nil {
+		return fmt.Errorf("create journal root: %w", err)
+	}
+	if err := os.MkdirAll(blobRoot, 0o755); err != nil {
+		return fmt.Errorf("create blob root: %w", err)
+	}
 
 	namespaces, err := remote.ListNamespaces()
 	if err != nil {
@@ -90,6 +103,10 @@ func Pull(localPath string, remote backend.RemoteBackend) error {
 
 	var failures []error
 	for _, ns := range namespaces {
+		if err := paths.ValidateNamespace(ns); err != nil {
+			failures = append(failures, fmt.Errorf("namespace=%s sync_phase=validate_namespace: %w", ns, err))
+			continue
+		}
 		entries, err := remote.ListJournal(ns, "")
 		if err != nil {
 			fmt.Printf("Skipping namespace %s: %v\n", ns, err)
@@ -98,9 +115,13 @@ func Pull(localPath string, remote backend.RemoteBackend) error {
 		}
 
 		for _, entry := range entries {
-			entryPath := filepath.Join(journalRoot, ns, entry.ID+".json")
+			if err := validateSyncEntry(ns, entry); err != nil {
+				failures = append(failures, err)
+				continue
+			}
+			entryPath, _ := paths.SafeJournalPath(ns, entry.ID)
 			entryExists := fileExists(entryPath)
-			blobPath := paths.BlobPath(entry.BlobHash)
+			blobPath, _ := paths.SafeBlobPath(entry.BlobHash)
 			blobExists := fileExists(blobPath)
 			if entryExists && blobExists {
 				continue
@@ -110,7 +131,7 @@ func Pull(localPath string, remote backend.RemoteBackend) error {
 				blob, err := remote.GetBlobByHash(entry.BlobHash)
 				if err != nil {
 					fmt.Printf("Failed to fetch blob %s: %v\n", entry.BlobHash, err)
-					failures = append(failures, fmt.Errorf("%s/%s: fetch blob %s: %w", ns, entry.ID, entry.BlobHash, err))
+					failures = append(failures, backendBlobOpError(ns, entry.ID, entry.BlobHash, "GetBlobByHash", err))
 					continue
 				}
 				if err := os.WriteFile(blobPath, blob, 0o644); err != nil {

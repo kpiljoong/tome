@@ -45,7 +45,7 @@ var RmCmd = &cobra.Command{
 			if errors.Is(err, errAmbiguousRmMatch) {
 				logx.Info("🔍 Multiple matches found for %q in namespace [%s]:", query, namespace)
 				for _, e := range entries {
-					logx.Info("  - [%s] %-20s  ID: %s", e.Timestamp.Format("2006-01-02 15:04"), e.Filename, e.ID[:8])
+					logx.Info("  - [%s] %-20s  ID: %.8s", e.Timestamp.Format("2006-01-02 15:04"), e.Filename, e.ID)
 				}
 				logx.Hint("Use '--all' to delete all, or '--interactive' to pick one.")
 				log.Fatalf("❌ Ambiguous match — refine query or use --all/--interactive")

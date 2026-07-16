@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,11 +16,19 @@ import (
 	"github.com/kpiljoong/tome/internal/util"
 )
 
+var errAlreadySaved = errors.New("already saved")
+
 func SaveDir(namespace, root string, smart bool) ([]*model.JournalEntry, error) {
+	if err := paths.ValidateNamespace(namespace); err != nil {
+		return nil, fmt.Errorf("invalid namespace: %w", err)
+	}
+
 	var entries []*model.JournalEntry
+	var failures []error
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			failures = append(failures, fmt.Errorf("walk %s: %w", path, err))
+			return nil
 		}
 
 		if info.IsDir() || strings.HasPrefix(info.Name(), ".") {
@@ -27,20 +36,39 @@ func SaveDir(namespace, root string, smart bool) ([]*model.JournalEntry, error) 
 		}
 
 		entry, err := Save(namespace, path, smart)
+		if errors.Is(err, errAlreadySaved) {
+			return nil
+		}
 		if err != nil {
+			failures = append(failures, fmt.Errorf("save %s: %w", path, err))
 			return nil
 		}
 		entries = append(entries, entry)
 		return nil
 	})
-	return entries, err
+	if err != nil {
+		return entries, err
+	}
+	if len(failures) > 0 {
+		return entries, fmt.Errorf("save directory completed with %d failure(s): %w", len(failures), errors.Join(failures...))
+	}
+	return entries, nil
 }
 
 func SaveDirWithExclude(namespace, root string, smart bool, excludes []string) ([]*model.JournalEntry, error) {
+	if err := paths.ValidateNamespace(namespace); err != nil {
+		return nil, fmt.Errorf("invalid namespace: %w", err)
+	}
+
 	var entries []*model.JournalEntry
+	var failures []error
 
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+		if err != nil {
+			failures = append(failures, fmt.Errorf("walk %s: %w", path, err))
+			return nil
+		}
+		if d.IsDir() {
 			return nil
 		}
 		if util.ShouldExclude(path, excludes) {
@@ -48,16 +76,31 @@ func SaveDirWithExclude(namespace, root string, smart bool, excludes []string) (
 		}
 
 		entry, err := Save(namespace, path, smart)
-		if err == nil {
-			entries = append(entries, entry)
+		if errors.Is(err, errAlreadySaved) {
+			return nil
 		}
+		if err != nil {
+			failures = append(failures, fmt.Errorf("save %s: %w", path, err))
+			return nil
+		}
+		entries = append(entries, entry)
 		return nil
 	})
-	return entries, err
+	if err != nil {
+		return entries, err
+	}
+	if len(failures) > 0 {
+		return entries, fmt.Errorf("save directory completed with %d failure(s): %w", len(failures), errors.Join(failures...))
+	}
+	return entries, nil
 }
 
 // Save saves a file to the journal under a given namespace.
 func Save(namespace, path string, smart bool) (*model.JournalEntry, error) {
+	if err := paths.ValidateNamespace(namespace); err != nil {
+		return nil, fmt.Errorf("invalid namespace: %w", err)
+	}
+
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve full path: %w", err)
@@ -82,7 +125,7 @@ func Save(namespace, path string, smart bool) (*model.JournalEntry, error) {
 						break // proceed to create new entry
 					}
 				}
-				return nil, fmt.Errorf("already saved")
+				return nil, errAlreadySaved
 			}
 		}
 	}

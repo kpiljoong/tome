@@ -72,7 +72,7 @@ var ShareCmd = &cobra.Command{
 		} else {
 			logx.Info("🔍 %d matches found for %q in namespace [%s]:", len(entries), filename, namespace)
 			for _, e := range entries {
-				fmt.Printf("  - [%s] %-20s  ID: %s\n", e.Timestamp.Format("2006-01-02 15:04"), e.Filename, e.ID[:8])
+				fmt.Printf("  - [%s] %-20s  ID: %.8s\n", e.Timestamp.Format("2006-01-02 15:04"), e.Filename, e.ID)
 			}
 			logx.Hint("Use '--interactive' to pick one.")
 			log.Fatalf("❌ Multiple results. Please refine your query.")

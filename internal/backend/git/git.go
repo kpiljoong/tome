@@ -1,6 +1,7 @@
 package git
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,14 +24,24 @@ type GitRepoBackend struct {
 }
 
 func NewGitRepoBackend(remoteURL string) (*GitRepoBackend, error) {
-	cacheDir := filepath.Join(os.TempDir(), "tome-git", util.Slugify(remoteURL))
+	cacheKey := fmt.Sprintf("%x", sha256.Sum256([]byte(remoteURL)))
+	cacheDir := filepath.Join(os.TempDir(), "tome-git", cacheKey)
 	if _, err := os.Stat(filepath.Join(cacheDir, ".git")); os.IsNotExist(err) {
 		logx.Info("📥 Cloning repo: %s → %s", remoteURL, cacheDir)
 		cmd := exec.Command("git", "clone", remoteURL, cacheDir)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return nil, fmt.Errorf("git clone failed: %w\n%s", err, string(output))
 		}
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to inspect git cache: %w", err)
 	} else {
+		origin, err := exec.Command("git", "-C", cacheDir, "remote", "get-url", "origin").CombinedOutput()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read cached remote origin: %w\n%s", err, string(origin))
+		}
+		if strings.TrimSpace(string(origin)) != remoteURL {
+			return nil, fmt.Errorf("cached remote origin does not match requested remote")
+		}
 		logx.Info("🔄 Pulling latest: %s", remoteURL)
 		cmd := exec.Command("git", "-C", cacheDir, "pull")
 		if output, err := cmd.CombinedOutput(); err != nil {
@@ -66,7 +77,7 @@ func (g *GitRepoBackend) UploadDir(localRoot, remoteSubpath string) error {
 	}
 
 	// Something has changed - commit and push
-	cmd = exec.Command("git", "-C", g.LocalPath, "commit", "-m", "tome: sync update")
+	cmd = gitCommitCommand(g.LocalPath)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("git commit failed: %w", err)
 	}
@@ -89,6 +100,9 @@ func (g *GitRepoBackend) Exists(remotePath string) (bool, error) {
 }
 
 func (g *GitRepoBackend) ListJournal(namespace, query string) ([]*model.JournalEntry, error) {
+	if err := paths.ValidateNamespace(namespace); err != nil {
+		return nil, fmt.Errorf("invalid namespace: %w", err)
+	}
 	journalDir := filepath.Join(g.LocalPath, "journals", namespace)
 	files, err := os.ReadDir(journalDir)
 	if err != nil {
@@ -137,6 +151,9 @@ func (g *GitRepoBackend) ListJournal(namespace, query string) ([]*model.JournalE
 }
 
 func (g *GitRepoBackend) GetBlobByHash(hash string) ([]byte, error) {
+	if err := paths.ValidateBlobHash(hash); err != nil {
+		return nil, fmt.Errorf("invalid blob hash: %w", err)
+	}
 	safeHash := paths.SanitizeHash(hash)
 	blobPath := filepath.Join(g.LocalPath, "blobs", safeHash)
 
@@ -195,6 +212,9 @@ func (g *GitRepoBackend) UploadFile(localPath, remotePath string) error {
 	dest := filepath.Join(g.LocalPath, remotePath)
 	logx.Info("📁 Copying: %s → %s", localPath, dest)
 
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return fmt.Errorf("failed to create remote directory: %w", err)
+	}
 	if err := util.CopyFile(localPath, dest); err != nil {
 		return fmt.Errorf("failed to copy file: %w", err)
 	}
@@ -204,8 +224,7 @@ func (g *GitRepoBackend) UploadFile(localPath, remotePath string) error {
 		return fmt.Errorf("git add failed: %w\n%s", err, string(output))
 	}
 
-	cmd = exec.Command("git", "-C", g.LocalPath, "commit", "-m", "tome: sync update")
-	cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=tome", "GIT_COMMIT_NAME=tome")
+	cmd = gitCommitCommand(g.LocalPath)
 
 	if output, err := cmd.CombinedOutput(); err != nil {
 		if !strings.Contains(string(output), "nothing to commit") {
@@ -222,6 +241,43 @@ func (g *GitRepoBackend) UploadFile(localPath, remotePath string) error {
 
 	logx.Success("🚀 Synced to Git: %s", g.RemoteURL)
 	return nil
+}
+
+func gitCommitCommand(repoPath string) *exec.Cmd {
+	cmd := exec.Command("git", "-C", repoPath, "commit", "-m", "tome: sync update")
+	cmd.Env = gitIdentityEnv()
+	return cmd
+}
+
+func gitIdentityEnv() []string {
+	identityKeys := []string{
+		"GIT_AUTHOR_NAME=",
+		"GIT_AUTHOR_EMAIL=",
+		"GIT_COMMITTER_NAME=",
+		"GIT_COMMITTER_EMAIL=",
+	}
+
+	var env []string
+	for _, value := range os.Environ() {
+		if !hasAnyPrefix(value, identityKeys) {
+			env = append(env, value)
+		}
+	}
+	return append(env,
+		"GIT_AUTHOR_NAME=tome",
+		"GIT_AUTHOR_EMAIL=tome@localhost",
+		"GIT_COMMITTER_NAME=tome",
+		"GIT_COMMITTER_EMAIL=tome@localhost",
+	)
+}
+
+func hasAnyPrefix(value string, prefixes []string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(value, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // func contains(s, substr string) bool {

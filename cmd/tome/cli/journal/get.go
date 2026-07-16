@@ -69,7 +69,11 @@ func getFromLocal(namespace, query string, interactive bool) ([]byte, error) {
 		return nil, fmt.Errorf("ambiguous result - refine your query")
 	}
 
-	return os.ReadFile(paths.BlobPath(selected.BlobHash))
+	blobPath, err := paths.SafeBlobPath(selected.BlobHash)
+	if err != nil {
+		return nil, fmt.Errorf("invalid blob hash for selected entry: %w", err)
+	}
+	return os.ReadFile(blobPath)
 }
 
 func getFromRemote(namespace, query, from string, interactive bool) ([]byte, error) {
@@ -79,8 +83,11 @@ func getFromRemote(namespace, query, from string, interactive bool) ([]byte, err
 	}
 
 	entries, err := remote.ListJournal(namespace, query)
-	if err != nil || len(entries) == 0 {
-		return nil, fmt.Errorf("no matching journal entries found: %w", err)
+	if err != nil {
+		return nil, fmt.Errorf("list remote journal entries: %w", err)
+	}
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("no matching journal entries found")
 	}
 
 	var selected *model.JournalEntry
@@ -94,7 +101,7 @@ func getFromRemote(namespace, query, from string, interactive bool) ([]byte, err
 	} else {
 		logx.Warn("📘 🔍 %d matches found:", len(entries))
 		for _, e := range entries {
-			logx.Info("  - [%s] %-20s ID: %s", e.Timestamp.Format("2006-01-02 15:04"), e.Filename, e.ID[:8])
+			logx.Info("  - [%s] %-20s ID: %.8s", e.Timestamp.Format("2006-01-02 15:04"), e.Filename, e.ID)
 		}
 		logx.Hint("Use '--interactive' to select one")
 		return nil, fmt.Errorf("ambiguous result – refine your query")

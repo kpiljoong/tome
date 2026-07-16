@@ -20,6 +20,18 @@ func TestListJournalReturnsEmptyForMissingNamespace(t *testing.T) {
 	assert.Empty(t, entries)
 }
 
+func TestGitBackendRejectsTraversalPaths(t *testing.T) {
+	backend := &GitRepoBackend{LocalPath: t.TempDir()}
+
+	_, err := backend.ListJournal("../outside", "")
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "invalid namespace")
+
+	_, err = backend.GetBlobByHash("../outside")
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "invalid blob hash")
+}
+
 func TestListJournalReturnsErrorForDecodeFailure(t *testing.T) {
 	root := t.TempDir()
 	journalDir := filepath.Join(root, "journals", "workbooks")

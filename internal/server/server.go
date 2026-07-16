@@ -4,18 +4,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/kpiljoong/tome/internal/core"
 	"github.com/kpiljoong/tome/internal/logx"
+	"github.com/kpiljoong/tome/internal/paths"
 )
 
 func Start(port int) error {
-	http.HandleFunc("/journal", handleJournal)
-	http.HandleFunc("/blob", handleBlob)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/journal", handleJournal)
+	mux.HandleFunc("/blob", handleBlob)
 
-	addr := fmt.Sprintf(":%d", port)
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	logx.Info("🚀 Server started at http://localhost:%d", port)
-	return http.ListenAndServe(addr, nil)
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       30 * time.Second,
+	}
+	return server.ListenAndServe()
 }
 
 func handleJournal(w http.ResponseWriter, r *http.Request) {
@@ -24,6 +33,10 @@ func handleJournal(w http.ResponseWriter, r *http.Request) {
 
 	if ns == "" || query == "" {
 		http.Error(w, "Missing namespace or query", http.StatusBadRequest)
+		return
+	}
+	if err := paths.ValidateNamespace(ns); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid namespace: %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -41,6 +54,10 @@ func handleBlob(w http.ResponseWriter, r *http.Request) {
 	hash := r.URL.Query().Get("hash")
 	if hash == "" {
 		http.Error(w, "Missing hash", http.StatusBadRequest)
+		return
+	}
+	if err := paths.ValidateBlobHash(hash); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid blob hash: %v", err), http.StatusBadRequest)
 		return
 	}
 

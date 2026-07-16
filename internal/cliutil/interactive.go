@@ -26,7 +26,7 @@ func PickEntry(entries []*model.JournalEntry) (*model.JournalEntry, error) {
 			i+1,
 			e.Timestamp.Format("2006-01-02 15:04"),
 			e.Filename,
-			e.ID[:8],
+			e.ID,
 			preview,
 		)
 	}
@@ -38,7 +38,7 @@ func PickEntry(entries []*model.JournalEntry) (*model.JournalEntry, error) {
 		return nil, fmt.Errorf("failed to read input: %v", err)
 	}
 
-	num, err := strconv.Atoi(line[:len(line)-1])
+	num, err := strconv.Atoi(strings.TrimSpace(line))
 	if err != nil || num < 1 || num > len(entries) {
 		return nil, fmt.Errorf("invalid entry number: %v", err)
 	}

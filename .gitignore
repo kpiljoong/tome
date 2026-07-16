@@ -37,6 +37,8 @@ coverage/
 /docs/gen/
 docs/
 .codenav/
+.claude/
+.codex/skills/
 
 # Cache
 *.cache

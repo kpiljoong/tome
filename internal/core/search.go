@@ -38,7 +38,10 @@ func SearchAll(query string) ([]*model.JournalEntry, error) {
 }
 
 func SearchLocal(namespace, query string) ([]*model.JournalEntry, error) {
-	dir := paths.NamespaceDir(namespace)
+	dir, err := paths.SafeNamespaceDir(namespace)
+	if err != nil {
+		return nil, fmt.Errorf("invalid namespace: %w", err)
+	}
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read namespace dir: %w", err)
@@ -69,9 +72,10 @@ func SearchLocal(namespace, query string) ([]*model.JournalEntry, error) {
 }
 
 func Search(namespace string, query string) ([]*model.JournalEntry, error) {
-	// baseDir := filepath.Join(os.Getenv("HOME"), ".tome")
-	// journalDir := filepath.Join(baseDir, "journals", namespace)
-	journalDir := paths.NamespaceDir(namespace)
+	journalDir, err := paths.SafeNamespaceDir(namespace)
+	if err != nil {
+		return nil, fmt.Errorf("invalid namespace: %w", err)
+	}
 
 	var results []*model.JournalEntry
 
